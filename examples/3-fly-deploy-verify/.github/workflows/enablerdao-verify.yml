@@ -1,0 +1,57 @@
+name: enablerdao deploy verify
+#
+# Drop this into .github/workflows/ of the enablerdao repo.
+# Triggers after a successful deploy, verifies endpoints, auto-diagnoses on failure.
+#
+# Required secrets:
+#   ANTHROPIC_API_KEY   — for mini-agent-c (Claude)
+#   FLY_API_TOKEN       — for `fly logs` fallback on failure
+
+on:
+  workflow_run:
+    workflows: ["Deploy"]
+    types: [completed]
+  workflow_dispatch: {}
+
+jobs:
+  verify:
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Install deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libcurl4-openssl-dev
+
+      - name: Install flyctl
+        run: |
+          curl -L https://fly.io/install.sh | sh
+          echo "$HOME/.fly/bin" >> $GITHUB_PATH
+
+      - name: Fetch mini-agent-c
+        run: |
+          git clone --depth 1 https://github.com/yukihamada/mini-agent-c.git /tmp/mac
+          cd /tmp/mac
+          gcc -O2 -Wall -Wno-comment -std=c99 -D_POSIX_C_SOURCE=200809L \
+              -o agent.v4 agent.v4.c cJSON.c -lcurl -lm
+
+      - name: Verify deploy
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          cd /tmp/mac/examples/3-fly-deploy-verify
+          ./verify.sh enablerdao \
+            https://enablerdao.com \
+            https://enablerdao.com/api/health
+
+      - name: Slack notify on failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        run: |
+          [ -z "${SLACK_WEBHOOK:-}" ] && exit 0
+          curl -sS -X POST "$SLACK_WEBHOOK" \
+            -H 'content-type: application/json' \
+            -d "{\"text\":\"🚨 enablerdao deploy verification failed — check Actions log\"}"

@@ -20,8 +20,37 @@ Exit code:
 
 ## GitHub Actions integration
 
-Drop `.github/workflows/fly-verify.yml` into your repo and it will auto-run after deploy.
-Customize the app name and endpoints at the top of the file.
+Ready-to-drop workflows (copy to `.github/workflows/` of each repo):
+
+| File | Target repo | Fly app | Domains |
+|---|---|---|---|
+| `enablerdao-verify.yml` | enablerdao | enablerdao | enablerdao.com |
+| `claudeterm-verify.yml` | claudeterm | claudeterm | chatweb.ai, teai.io, api.chatweb.ai |
+| `jiuflow-ssr-verify.yml` | jiuflow-ssr | jiuflow-ssr | jiuflow.art |
+| `fly-verify.yml` | (generic template) | any | parameterize |
+
+Each workflow:
+1. Triggers after `workflow_run: "Deploy"` succeeds (or manual `workflow_dispatch`)
+2. Installs `mini-agent-c` + `flyctl` from GitHub
+3. Runs `verify.sh <app> <url...>` against the listed endpoints
+4. On failure, notifies via Slack/Telegram (if webhook/token secrets set)
+
+### Required repo secrets
+
+- `ANTHROPIC_API_KEY` — for the Claude agent
+- `FLY_API_TOKEN` — so `fly logs` works in the failure diagnosis step
+- `SLACK_WEBHOOK` or `TG_BOT_TOKEN`+`TG_CHAT_ID` — optional notification
+
+### To activate
+
+```bash
+# From each product repo:
+curl -sL https://raw.githubusercontent.com/yukihamada/mini-agent-c/master/examples/3-fly-deploy-verify/.github/workflows/enablerdao-verify.yml \
+  -o .github/workflows/deploy-verify.yml
+git add .github/workflows/deploy-verify.yml
+git commit -m "ci: post-deploy verify via mini-agent-c"
+git push
+```
 
 ## What it does
 
