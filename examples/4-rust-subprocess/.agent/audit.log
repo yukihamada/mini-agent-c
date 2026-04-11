@@ -1,5 +1,0 @@
-{"time":"2026-04-11T15:29:39","pid":7870,"depth":0,"tool":"bash","input":"{\"command\":\"echo $((100 * 101 / 2))\"}","result_preview":"5050\n\n[exit=0]"}
-{"time":"2026-04-11T15:29:49","pid":7910,"depth":0,"tool":"bash","input":"{\"command\":\"uptime\"}","result_preview":"sandbox-exec: .agent/sandbox.sb: No such file or directory\n\n[exit=65]"}
-{"time":"2026-04-11T15:29:49","pid":7910,"depth":0,"tool":"bash","input":"{\"command\":\"curl -sSo /dev/null -w '%{http_code}' https://api.anthropic.com\"}","result_preview":"sandbox-exec: .agent/sandbox.sb: No such file or directory\n\n[exit=65]"}
-{"time":"2026-04-11T15:29:51","pid":7910,"depth":0,"tool":"bash","input":"{\"command\":\"which uptime && uptime || cat /proc/loadavg\"}","result_preview":"sandbox-exec: .agent/sandbox.sb: No such file or directory\n\n[exit=65]"}
-{"time":"2026-04-11T15:29:51","pid":7910,"depth":0,"tool":"bash","input":"{\"command\":\"which curl && curl -sSo /dev/null -w '%{http_code}' https://api.anthropic.com 2>&1 || echo \\\"curl unavailable\\\"\"}","result_preview":"sandbox-exec: .agent/sandbox.sb: No such file or directory\n\n[exit=65]"}

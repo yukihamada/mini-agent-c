@@ -1,1 +1,0 @@
-/Users/yuki/workspace/mini-agent-c/examples/4-rust-subprocess/target/debug/examples/health_check: /Users/yuki/workspace/mini-agent-c/examples/4-rust-subprocess/examples/health_check.rs /Users/yuki/workspace/mini-agent-c/examples/4-rust-subprocess/src/lib.rs
