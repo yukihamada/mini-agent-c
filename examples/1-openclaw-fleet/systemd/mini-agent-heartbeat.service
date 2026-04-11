@@ -1,0 +1,26 @@
+[Unit]
+Description=mini-agent-c fleet heartbeat
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/mini-agent/env
+WorkingDirectory=/opt/mini-agent
+ExecStart=/opt/mini-agent/agent.v4 \
+    --sandbox \
+    --max-turns 12 \
+    --budget 15000 \
+    --quiet \
+    "Use host_health to collect this VPS's disk/memory/cpu/load. \
+Use service_status with empty filter to see failed units. \
+Use log_scan 30 to check the last 30 minutes of errors. \
+If disk is >85%% full, load >8, memory >90%% used, any failed systemd unit, \
+or more than 5 errors in log_scan: call telegram_report with a DENSE one-line summary. \
+Otherwise do nothing (no telegram report)."
+StandardOutput=append:/var/log/mini-agent/heartbeat.log
+StandardError=append:/var/log/mini-agent/heartbeat.log
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,1 @@
+/Users/yuki/workspace/mini-agent-c/examples/4-rust-subprocess/target/debug/examples/nl_task: /Users/yuki/workspace/mini-agent-c/examples/4-rust-subprocess/examples/nl_task.rs /Users/yuki/workspace/mini-agent-c/examples/4-rust-subprocess/src/lib.rs

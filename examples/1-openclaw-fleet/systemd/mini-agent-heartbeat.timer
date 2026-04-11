@@ -1,0 +1,12 @@
+[Unit]
+Description=mini-agent-c heartbeat every 30 min
+Requires=mini-agent-heartbeat.service
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=30min
+RandomizedDelaySec=120
+Unit=mini-agent-heartbeat.service
+
+[Install]
+WantedBy=timers.target

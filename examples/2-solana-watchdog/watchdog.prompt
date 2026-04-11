@@ -1,0 +1,20 @@
+Run a one-pass solana liquidation-bot health check.
+
+Steps (call each tool at most once):
+1. rpc_health — check if our RPC is in sync with mainnet
+2. bot_log marginfi 100
+3. bot_log kamino 100
+4. bot_log drift 100
+5. wallet_balance (uses $WALLET_ADDRESS)
+
+Decision rules (ONLY call telegram_alert if at least one is TRUE):
+- rpc lag > 20 slots → telegram_alert "critical" "RPC lag: <detail>"
+- any bot has errors > 3 in the tail → telegram_alert "warn" "<bot> errors: <count> — <last error>"
+- wallet balance_sol < 0.2 → telegram_alert "critical" "Gas wallet low: <balance>"
+- any bot log tool returned ERROR (not found / unreachable) → telegram_alert "warn" "<bot> log unreachable"
+
+If everything is healthy, DO NOT call telegram_alert. Just respond with a one-line summary:
+"OK rpc=<lag> marginfi=<err> kamino=<err> drift=<err> sol=<balance>"
+
+DO NOT call any tools other than the ones listed above. DO NOT use bash directly.
+DO NOT save to memory. Keep the response terse.

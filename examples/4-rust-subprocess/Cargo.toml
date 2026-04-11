@@ -1,0 +1,16 @@
+[package]
+name = "mini-agent-wrapper"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.102"
+thiserror = "1"
+
+[[example]]
+name = "nl_task"
+path = "examples/nl_task.rs"
+
+[[example]]
+name = "health_check"
+path = "examples/health_check.rs"
