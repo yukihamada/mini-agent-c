@@ -80,29 +80,32 @@ for gen in $(seq 1 "$GENERATIONS"); do
 
     git checkout -q -B "$BRANCH" || true
 
-    PROMPT="You are running as $CURRENT_BIN. Evolve yourself to $NEXT_BIN.
+    PROMPT="You are running as $CURRENT_BIN. Evolve yourself to $NEXT_BIN via a SURGICAL patch strategy.
 
-Steps (you MUST follow in order):
-1. read_file $CURRENT_SRC to see your current source
-2. Design ONE concrete improvement. Good choices:
-   - Add an SSE streaming mode (parse \`event:\`/\`data:\` lines, print text_delta as it arrives)
-   - Improve error messages in tool_bash (show which ulimit fired)
-   - Add a new builtin tool 'search_text' that greps a pattern in files under CWD
-   - Add retry with exponential backoff instead of fixed 2s
-   Pick ONE, don't bite more than you can finish.
-3. write_file $NEXT_SRC with the FULL improved source. Keep all existing features.
-   Do NOT remove safety checks (path_is_safe, check_dangerous, audit, budget, STOP file).
+IMPORTANT CONSTRAINTS:
+- Your max_tokens per response is 16384. Writing a full 1000+ line file in one tool_use is borderline — use bash to do surgical edits instead.
+- Do NOT attempt full rewrites. Use 'cp $CURRENT_SRC $NEXT_SRC' then apply patches with bash (sed, awk, or echo >> append).
+
+Steps:
+1. bash: cp $CURRENT_SRC $NEXT_SRC   (duplicate the source)
+2. Pick ONE concrete small improvement. Choose from:
+   (a) Add a new builtin tool 'search_text(pattern, dir)' that uses grep -rn, ~30 lines
+   (b) Add exponential backoff: change RETRY_SLEEP_SEC fixed to 2, 4, 8 seconds per attempt
+   (c) Add a --version flag that prints 'mini-agent-c v3.1' and exits
+3. Apply the change to $NEXT_SRC using bash commands (sed -i '' ..., or python3 -c to patch).
+   Verify with: bash 'diff $CURRENT_SRC $NEXT_SRC | head -30' that the diff is small and correct.
 4. bash: cc -O2 -Wall -std=c99 -D_POSIX_C_SOURCE=200809L -D_DARWIN_C_SOURCE -o $NEXT_BIN $NEXT_SRC cJSON.c -lcurl -lm
-5. If it fails to compile, read the error and fix $NEXT_SRC, rebuild. Up to 3 iterations.
-6. bash: ./$NEXT_BIN --max-turns 3 --budget 20000 --quiet 'Create a file called selftest.txt with content ok' then check the file exists.
-7. Reply with a summary: what changed, what you tested.
+5. If compile fails, read the error, patch $NEXT_SRC, rebuild. Up to 3 iterations.
+6. bash: ./$NEXT_BIN --max-turns 3 --budget 20000 --quiet 'Create selftest.txt containing ok'
+   Then bash 'cat selftest.txt' to verify.
+7. Reply with a SHORT summary: what changed, diff line count, test result.
 
-Constraints:
-- NEVER touch $CURRENT_SRC (your own running source)
-- NEVER modify .agent/sandbox.sb or eval.sh
-- NEVER call save_memory (keep noise out of persistent memory during evolution)
-- Do NOT use sudo, rm -rf, or network posts
-- Budget: keep it under ~50 bash calls total"
+HARD CONSTRAINTS:
+- NEVER touch $CURRENT_SRC (your own running source), .agent/sandbox.sb, eval.sh, or cJSON.c
+- NEVER remove safety checks (path_is_safe, check_dangerous, audit, budget, STOP file, redact_secrets)
+- NEVER call save_memory during evolution
+- NO sudo, rm -rf, curl posts
+- Total bash calls should be <20"
 
     "./$CURRENT_BIN" --max-turns 30 --budget 200000 "$PROMPT" 2>&1 | tee ".agent/evolve_gen${gen}.log"
 
