@@ -115,6 +115,58 @@ nou-server/src/main.rs                       (+10 lines)
 私のpatchは全部 `/tmp/nou-safety-backup/*.patch` として独立保存済なので、
 cherry-pick で別ブランチに移すのも可能です。
 
+### Phase 2: Bearer Token Auth + Menubar UI (2026-04-11 19:20)
+
+**追加実装**:
+
+| # | 内容 | 結果 |
+|---|---|---|
+| 15 | nou-server (Rust) に bearer token middleware 追加 | ✅ |
+| 16 | `load_or_create_auth_token()` — `~/.nou/auth_token` 自動生成 (0600, 48 hex chars) | ✅ |
+| 17 | `auth_middleware` — localhost bypass + /health public + Bearer token 検証 | ✅ |
+| 18 | `ConnectInfo<SocketAddr>` 経由で peer IP 取得 (spoof 不可) | ✅ |
+| 19 | NOU.app (Swift) `AuthMiddleware` 新規作成 — 既存 AuthCheck と連動 | ✅ |
+| 20 | ProxyServer.swift に `router.add(middleware: AuthMiddleware())` | ✅ |
+| 21 | MenubarController.swift `updateIconBadge()` — 赤丸 badge + tooltip | ✅ |
+| 22 | `@objc func installUpdate()` — 確認 dialog → `UpdateChecker.downloadAndInstall()` 直接実行 (署名検証込み) | ✅ |
+| 23 | 両バイナリ再ビルド (`cargo build --release` + `swift build -c release`) | ✅ |
+| 24 | Launch daemon reload + NOU.app 再起動 | ✅ |
+| 25 | `verify.sh` 拡張: bearer token 5項目自動テスト | ✅ |
+
+**ベンチ結果** (一時的 `NOU_BIND_ALL=1` で 4006 検証):
+```
+token file: exists (48 chars, 0600)
+permissions: 0600 ✅
+LAN no-token    = 401 ✅
+LAN wrong-token = 401 ✅
+LAN correct     = 200 ✅
+LAN /health     = 200 ✅
+```
+
+**最終状態**:
+- nou-server :4004 は localhost bind 維持 (NOU_BIND_ALL=1 で opt-in LAN)
+- NOU.app :4001 は localhost bind 維持 (同上)
+- LAN bind を有効化しても Bearer token 必須 → 不正アクセス 401
+- mesh/friend は relay.nou.run 経由で引き続き動作
+- Menubar に赤丸 badge → update 検知時自動表示
+- Update install は menubar メニュー → 確認 → 署名検証 → .app bundle 置換 → rollback フラグ → 30秒 crash 自動復旧
+
+**新規ファイル**:
+- `NOU.app-src/Sources/Server/AuthMiddleware.swift` (新規、80行)
+
+**変更ファイル** (全て unstaged):
+- `nou-server/src/main.rs` (+134行: token 生成、middleware、ConnectInfo 配線)
+- `NOU.app-src/Sources/Server/ProxyServer.swift` (+4行: middleware 追加)
+- `NOU.app-src/Sources/Menubar/MenubarController.swift` (+70行: badge + installUpdate)
+- `NOU.app-src/Sources/App/UpdateChecker.swift` (Phase 1 から変更なし)
+- `NOU.app-src/Sources/App/AppDelegate.swift` (Phase 1 から変更なし)
+
+**patches 更新済** (`/tmp/nou-safety-backup/`):
+- `nou-server-full.patch` (152行、bind + auth 両方)
+- `ProxyServer-full.patch` (34行、bind + middleware 両方)
+- `AuthMiddleware.swift.new` (新規ファイル全文)
+- `MenubarController.swift.new` (全体、3MB 近いので cherry-pick 推奨)
+
 ### ✅ 完了したタスク
 
 - [x] nou-server `:4004` localhost bind (source + rebuild + install + verify)
