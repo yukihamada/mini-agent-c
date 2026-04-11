@@ -1,15 +1,17 @@
+# Binaries only (track .c sources)
 agent
-agent.v2
-agent.v3
-agent.v4
-agent.v5
-agent.v*
+/agent.v2
+/agent.v3
+/agent.v4
+/agent.v5
+/agent.v6
 *.o
 .agent/audit.log
 .agent/evolve_gen*.log
 .agent/STOP
-/tmp/
+# Test outputs
 hello.txt
 evolved.txt
 selftest.txt
 result.txt
+leak.txt
