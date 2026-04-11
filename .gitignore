@@ -1,0 +1,15 @@
+agent
+agent.v2
+agent.v3
+agent.v4
+agent.v5
+agent.v*
+*.o
+.agent/audit.log
+.agent/evolve_gen*.log
+.agent/STOP
+/tmp/
+hello.txt
+evolved.txt
+selftest.txt
+result.txt
