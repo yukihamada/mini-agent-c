@@ -1,0 +1,9 @@
+pattern,backend,model,task,wall_sec,peak_rss_mb,in_tokens,out_tokens,exit,ok
+nou-echo,openai,qwen2.5:0.5b,"Reply with exactly: HI",6.57,5,708,17,0,n
+nou-calc,openai,qwen2.5:0.5b,"Use bash to compute 13*17 and reply with",9.98,5,1523,37,0,n
+nou-file,openai,qwen2.5:0.5b,"Create /tmp/bench_20541.txt with content",9.30,5,1530,51,0,y
+anth-echo,anthropic,claude-haiku-4-5,"Reply with exactly: HI",0.74,6,1316,5,0,y
+anth-calc,anthropic,claude-haiku-4-5,"Use bash to compute 13*17 and reply with",2.19,7,2729,62,0,y
+anth-file,anthropic,claude-sonnet-4-5,"Create /tmp/bench_20541.txt with content",8.45,7,6080,264,0,y
+par-1,openai,qwen2.5:0.5b,"Reply with exactly: HI",2.22,5,708,2,0,y
+par-2,openai,qwen2.5:0.5b,"Reply with exactly: HI",2.27,5,708,2,0,y
