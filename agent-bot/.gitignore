@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+*.pyc
+
+# Environment
+.env
+.env.local
+
+# Fly.io
+.fly/
+
+# Logs
+*.log
