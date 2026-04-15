@@ -18,6 +18,7 @@ let CPU_REFUSE_PCT = Double(ENV["CPU_REFUSE_PCT"] ?? "70") ?? 70
 let MEM_KILL_PCT   = Double(ENV["MEM_KILL_PCT"]  ?? "90") ?? 90
 let EVOLVE_MODEL   = ENV["EVOLVE_MODEL"] ?? "mlx-community/Qwen3.5-27B-4bit"
 let AUTO_EVOLVE_H  = Double(ENV["AUTO_EVOLVE_HOURS"] ?? "0") ?? 0
+let AUTO_EVAL_H    = Double(ENV["AUTO_EVAL_HOURS"] ?? "0") ?? 0
 let DEFAULT_MODEL  = "mlx-community/Qwen3.5-122B-A10B-4bit"
 let SERVER_PORT    = Int(ENV["PORT"] ?? "7878") ?? 7878
 let BIND_ADDR      = ENV["BIND"] ?? "127.0.0.1"
@@ -38,11 +39,51 @@ let STOP_FILE      = REPO.appendingPathComponent(".agent/STOP")
 struct ProcMeta {
     let started: Date
     let summary: String
+    var model: String = "unknown"
 }
 var activeProcs: [Int32: Process] = [:]
 var activeMeta:  [Int32: ProcMeta] = [:]
 let activeLock = NSLock()
 let runSemaphore = DispatchSemaphore(value: MAX_CONCURRENT)
+
+// MARK: - Rate limiter
+
+let RATE_LIMIT_RPM = Int(ENV["RATE_LIMIT_RPM"] ?? "20") ?? 20
+class RateLimiter {
+    private var hits: [String: [Date]] = [:]
+    private let lock = NSLock()
+    func allow(ip: String) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        let now = Date()
+        var times = hits[ip, default: []].filter { now.timeIntervalSince($0) < 60 }
+        if times.count >= RATE_LIMIT_RPM { return false }
+        times.append(now)
+        hits[ip] = times
+        return true
+    }
+}
+let rateLimiter = RateLimiter()
+
+// MARK: - Secret masking
+
+func maskSecrets(_ s: String) -> String {
+    var r = s
+    // OpenAI / Anthropic style keys
+    if let re = try? NSRegularExpression(pattern: #"(sk|hf)[-_][A-Za-z0-9]{20,}"#) {
+        r = re.stringByReplacingMatches(in: r, range: NSRange(r.startIndex..., in: r),
+                                         withTemplate: "[REDACTED]")
+    }
+    // Long uppercase hex tokens (AWS keys etc.)
+    if let re = try? NSRegularExpression(pattern: #"\b[A-Z0-9]{32,}\b"#) {
+        r = re.stringByReplacingMatches(in: r, range: NSRange(r.startIndex..., in: r),
+                                         withTemplate: "[REDACTED]")
+    }
+    return r
+}
+
+// MARK: - Error history
+
+let ERROR_HISTORY = REPO.appendingPathComponent(".agent/error_history.jsonl")
 
 // MARK: - JSON
 
@@ -110,10 +151,17 @@ func shellCapture(_ args: [String], timeout: Double = 3) -> String? {
 
 func killOldestAgent(_ reason: String) {
     activeLock.lock(); defer { activeLock.unlock() }
-    guard let pid = activeMeta.min(by: { $0.value.started < $1.value.started })?.key,
+    let now = Date()
+    // skip processes younger than 5s — give them a chance to start
+    let candidates = activeMeta.filter { now.timeIntervalSince($0.value.started) >= 5 }
+    guard let pid = candidates.min(by: { $0.value.started < $1.value.started })?.key,
           let proc = activeProcs[pid] else { return }
+    let meta = activeMeta[pid]
     fputs("[resource-guard] killing PID \(pid): \(reason)\n", stderr)
     proc.terminate()
+    let dur = round((now.timeIntervalSince(meta?.started ?? now)) * 10) / 10
+    appendJSONL(ERROR_HISTORY, ["ts": now.timeIntervalSince1970, "event": "resource-guard-kill",
+        "pid": pid, "reason": reason, "task": meta?.summary ?? "", "duration": dur])
 }
 
 func resourceGuardLoop() {
@@ -241,7 +289,10 @@ class Conn {
     }
 
     func sseEvent(_ etype: String, _ dict: [String: Any]) {
-        sseChunk("event: \(etype)\ndata: \(toJSONStr(dict))\n\n")
+        var d = dict
+        if etype == "text", let c = d["content"] as? String { d["content"] = maskSecrets(c) }
+        if etype == "log",  let l = d["line"]    as? String { d["line"]    = maskSecrets(l) }
+        sseChunk("event: \(etype)\ndata: \(toJSONStr(d))\n\n")
     }
 
     func sseEnd() { write(Data("0\r\n\r\n".utf8)) }
@@ -460,6 +511,11 @@ func handleRun(_ conn: Conn, body: Data) {
         "model": model, "backend": backend, "binary": binary.lastPathComponent,
         "exit": exit, "duration": dur]
     appendJSONL(HISTORY_FILE, entry)
+    // error history
+    if exit != 0 {
+        appendJSONL(ERROR_HISTORY, ["ts": Date().timeIntervalSince1970, "event": "agent-exit",
+            "task": String(task.prefix(200)), "exit_code": exit, "duration": dur, "model": model])
+    }
 }
 
 // MARK: - /evolve
@@ -533,6 +589,68 @@ func handleStop(_ conn: Conn) {
         try? FileManager.default.removeItem(at: STOP_FILE)
     }
     conn.json(["ok": true, "killed": killed])
+}
+
+// MARK: - /eval
+
+func handleEval(_ conn: Conn) {
+    let binary = findLatestBinary()
+    let evalScript = REPO.appendingPathComponent("eval.sh")
+    guard FileManager.default.fileExists(atPath: evalScript.path) else {
+        conn.err(500, "eval.sh not found"); return
+    }
+
+    let proc = Process()
+    proc.executableURL = URL(fileURLWithPath: "/bin/bash")
+    proc.arguments = [evalScript.path, binary.path]
+    proc.currentDirectoryURL = REPO
+    proc.environment = agentEnv()
+    let outPipe = Pipe(), errPipe = Pipe()
+    proc.standardOutput = outPipe
+    proc.standardError  = errPipe
+
+    let startTs = Date()
+    guard (try? proc.run()) != nil else {
+        conn.err(500, "failed to run eval.sh"); return
+    }
+
+    // enforce 120s timeout
+    let deadline = Date().addingTimeInterval(120)
+    while proc.isRunning && Date() < deadline { Thread.sleep(forTimeInterval: 0.25) }
+    if proc.isRunning { proc.terminate() }
+
+    let duration = round((Date().timeIntervalSince(startTs)) * 100) / 100
+    let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
+    let output = String(data: outData, encoding: .utf8) ?? ""
+
+    // Parse "score=N/M detail=..."
+    var score = 0, maxScore = 5
+    var detail = ""
+    for line in output.components(separatedBy: "\n") {
+        let t = line.trimmingCharacters(in: .whitespaces)
+        guard t.hasPrefix("score=") else { continue }
+        // e.g. "score=3/5 detail=write_ok,bash_ok,transform_FAIL,safety_ok,confine_ok"
+        let parts = t.components(separatedBy: " ")
+        for part in parts {
+            if part.hasPrefix("score=") {
+                let frac = part.dropFirst(6).components(separatedBy: "/")
+                score    = Int(frac.first ?? "0") ?? 0
+                maxScore = Int(frac.dropFirst().first ?? "5") ?? 5
+            } else if part.hasPrefix("detail=") {
+                detail = String(part.dropFirst(7))
+            }
+        }
+        break
+    }
+
+    let result: [String: Any] = [
+        "score": score, "max_score": maxScore,
+        "detail": detail, "duration_sec": duration,
+        "binary": binary.lastPathComponent,
+        "raw": output.trimmingCharacters(in: .whitespacesAndNewlines)
+    ]
+    appendJSONL(EVAL_HISTORY, result)
+    conn.json(result)
 }
 
 // MARK: - MLX proxy
@@ -719,7 +837,7 @@ func checkAuth(_ hdrs: [String: String]) -> Bool {
     AUTH_TOKEN.isEmpty || hdrs["authorization"] == "Bearer \(AUTH_TOKEN)"
 }
 
-func route(_ conn: Conn, method: String, path: String, query: String, hdrs: [String: String]) {
+func route(_ conn: Conn, method: String, path: String, query: String, hdrs: [String: String], clientIP: String = "0.0.0.0") {
     // POST: read body once
     var body = Data()
     if method == "POST" {
@@ -740,12 +858,20 @@ func route(_ conn: Conn, method: String, path: String, query: String, hdrs: [Str
 
     guard checkAuth(hdrs) else { conn.err(401, "unauthorized"); return }
 
+    // Rate limit POST /run
+    if method == "POST" && path == "/run" && !rateLimiter.allow(ip: clientIP) {
+        conn.sseHeader()
+        conn.sseEvent("error", ["message": "rate limit exceeded — max \(RATE_LIMIT_RPM) req/min"])
+        conn.sseEnd(); return
+    }
+
     switch (method, path) {
     case ("GET",  "/status"):   serveStatus(conn)
     case ("GET",  "/version"):  serveVersion(conn)
     case ("GET",  "/history"):  serveHistory(conn)
     case ("GET",  "/tools"):    serveTools(conn)
     case ("GET",  "/speak"):    handleSpeakGet(conn, query: query)
+    case ("GET",  "/eval"):     handleEval(conn)
     case ("POST", "/run"):      handleRun(conn, body: body)
     case ("POST", "/evolve"):   handleEvolve(conn)
     case ("POST", "/stop"):     handleStop(conn)
@@ -805,11 +931,15 @@ func runServer() {
             }
         }
         guard clientFd >= 0 else { continue }
+        var ipBuf = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
+        var inAddr = clientAddr.sin_addr
+        let clientIP = Darwin.inet_ntop(AF_INET, &inAddr, &ipBuf, socklen_t(INET_ADDRSTRLEN))
+            .map { String(cString: $0) } ?? "0.0.0.0"
         Thread.detachNewThread {
             let conn = Conn(clientFd)
             defer { Darwin.close(clientFd) }
             guard let (method, path, query, hdrs) = conn.parseRequest() else { return }
-            route(conn, method: method, path: path, query: query, hdrs: hdrs)
+            route(conn, method: method, path: path, query: query, hdrs: hdrs, clientIP: clientIP)
         }
     }
 }
@@ -818,6 +948,18 @@ func runServer() {
 
 signal(SIGPIPE, SIG_IGN)
 Thread.detachNewThread { resourceGuardLoop() }
+if AUTO_EVAL_H > 0 {
+    Thread.detachNewThread {
+        fputs("[eval] auto-eval every \(AUTO_EVAL_H)h\n", stderr)
+        while true {
+            Thread.sleep(forTimeInterval: AUTO_EVAL_H * 3600)
+            let devNull = Darwin.open("/dev/null", O_WRONLY)
+            let sink = Conn(devNull)
+            handleEval(sink)
+            Darwin.close(devNull)
+        }
+    }
+}
 if AUTO_EVOLVE_H > 0 {
     Thread.detachNewThread {
         fputs("[evolve] auto-evolve every \(AUTO_EVOLVE_H)h\n", stderr)
