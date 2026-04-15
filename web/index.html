@@ -516,7 +516,12 @@ function onEvent(text,isEv){
       startAgent(); clearThink();
       textBuf=`v${o.src_v} → v${o.tgt_v} 自己改善中…\n`;
       agentBubble.innerHTML=render(textBuf); break;
-    case 'start': if(!agentBubble)startAgent(); break;
+    case 'queued':{
+      if(!agentBubble)startAgent();
+      textBuf='⏳ ' + (o.message||'待機中...');
+      agentBubble.innerHTML=render(textBuf); scrollEnd(); break;
+    }
+    case 'start': if(!agentBubble)startAgent(); textBuf=''; break;
     case 'text':{
       const raw=(o.content||'').replace(/^\n?\[assistant\]\s*/,'');
       if(raw.trim())addText(raw); break;

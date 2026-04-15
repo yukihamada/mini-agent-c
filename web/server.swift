@@ -42,6 +42,7 @@ struct ProcMeta {
 var activeProcs: [Int32: Process] = [:]
 var activeMeta:  [Int32: ProcMeta] = [:]
 let activeLock = NSLock()
+let runSemaphore = DispatchSemaphore(value: MAX_CONCURRENT)
 
 // MARK: - JSON
 
@@ -354,18 +355,21 @@ func handleRun(_ conn: Conn, body: Data) {
           let task = (obj["task"] as? String)?.trimmingCharacters(in: .whitespaces),
           !task.isEmpty else { conn.err(400, "task required"); return }
 
-    activeLock.lock(); let nActive = activeProcs.count; activeLock.unlock()
-    if nActive >= MAX_CONCURRENT {
-        conn.sseHeader()
-        conn.sseEvent("error", ["message": "busy: \(nActive)/\(MAX_CONCURRENT) agents running"])
-        conn.sseEnd(); return
-    }
     let cpu = getCpuPct()
     if cpu > CPU_REFUSE_PCT {
         conn.sseHeader()
         conn.sseEvent("error", ["message": "system overloaded: CPU \(Int(cpu))% > \(Int(CPU_REFUSE_PCT))%"])
         conn.sseEnd(); return
     }
+
+    // Queue if slots are full (instead of rejecting)
+    activeLock.lock(); let nActive = activeProcs.count; activeLock.unlock()
+    conn.sseHeader()
+    if nActive >= MAX_CONCURRENT {
+        conn.sseEvent("queued", ["message": "ただいま作業中... しばらくお待ちください (\(nActive)/\(MAX_CONCURRENT))"])
+    }
+    runSemaphore.wait()
+    defer { runSemaphore.signal() }
 
     let model    = obj["model"]    as? String ?? DEFAULT_MODEL
     let budget   = obj["budget"]   as? Int    ?? 80000
@@ -391,7 +395,6 @@ func handleRun(_ conn: Conn, body: Data) {
     args.append(task)
 
     try? FileManager.default.removeItem(at: STOP_FILE)
-    conn.sseHeader()
 
     let proc = Process()
     proc.executableURL = binary
