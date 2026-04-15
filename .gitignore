@@ -26,3 +26,5 @@ agent.v12
 .agent/memory.md
 *.xcuserstate
 xcuserdata/
+ios/build/
+ios/DerivedData/
