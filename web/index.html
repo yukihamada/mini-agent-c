@@ -160,11 +160,16 @@ main { flex: 1; overflow: hidden; }
   position: absolute; top: 8px; right: 8px;
   background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12);
   color: rgba(255,255,255,.5); border-radius: 6px;
-  padding: 3px 9px; font: 11px/1.5 system-ui; cursor: pointer;
+  padding: 4px 10px; font: 11px/1.5 system-ui; cursor: pointer;
   transition: all .15s; opacity: 0;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 28px; /* touch target */
 }
 .code-wrap:hover .copy-btn { opacity: 1; }
-.copy-btn.copied { color: #6ee7b7; border-color: #6ee7b7; }
+/* always visible on touch devices */
+@media (hover: none) { .code-wrap .copy-btn { opacity: .55; } }
+.copy-btn:active { opacity: 1 !important; transform: scale(.93); }
+.copy-btn.copied { color: #6ee7b7; border-color: #6ee7b7; opacity: 1 !important; }
 .lang-tag {
   position: absolute; top: 8px; left: 12px;
   font: 10px 'SF Mono',Menlo,monospace; color: rgba(255,255,255,.25);
@@ -315,6 +320,17 @@ main { flex: 1; overflow: hidden; }
 .evo-btn:active:not(:disabled) { opacity: .6; }
 .evo-btn:disabled { opacity: .3; cursor: not-allowed; }
 
+/* スマホキーボード出現時: dvh で自動対応 */
+@supports (height: 100dvh) {
+  body { height: 100dvh; }
+}
+/* チップを横スクロールに */
+@media (max-width: 480px) {
+  .chips { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start;
+    padding-bottom: 4px; max-width: 100%; scroll-snap-type: x mandatory; }
+  .chip { flex-shrink: 0; scroll-snap-align: start; }
+  .bub { max-width: 90%; }
+}
 @media (min-width: 640px) {
   .sheet { left: auto; right: 18px; bottom: 18px; width: 360px; border-radius: 20px; border: 1px solid var(--bd); max-height: 85vh; }
   .bub { max-width: 70%; }
@@ -617,15 +633,31 @@ async function doStop(){
   agentRow=null;agentBubble=null;textBuf='';
 }
 
-sendBtn.addEventListener('click',()=>(running||evolving)?doStop():run());
-$('#evo-btn').addEventListener('click',()=>evolving?doStop():doEvolve());
+const vibe=(ms=8)=>{try{navigator.vibrate&&navigator.vibrate(ms);}catch{}};
+
+sendBtn.addEventListener('click',()=>{vibe();(running||evolving)?doStop():run();});
+$('#evo-btn').addEventListener('click',()=>{vibe();evolving?doStop():doEvolve();});
 taskEl.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();run();}});
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){if(running||evolving)doStop();else if(sheet.classList.contains('open'))closeSheet();}
 });
 
 for(const b of document.querySelectorAll('.chip'))
-  b.addEventListener('click',()=>{taskEl.value=b.dataset.t;taskEl.dispatchEvent(new Event('input'));taskEl.focus();});
+  b.addEventListener('click',()=>{vibe(4);taskEl.value=b.dataset.t;taskEl.dispatchEvent(new Event('input'));taskEl.focus();});
+
+/* シートをスワイプで閉じる */
+(()=>{
+  let sy=0,dy=0;
+  sheet.addEventListener('touchstart',e=>{sy=e.touches[0].clientY;dy=0;},{passive:true});
+  sheet.addEventListener('touchmove',e=>{
+    dy=e.touches[0].clientY-sy;
+    if(dy>0)sheet.style.transform=`translateY(${dy}px)`;
+  },{passive:true});
+  sheet.addEventListener('touchend',()=>{
+    if(dy>80){closeSheet();}
+    sheet.style.transform='';
+  });
+})();
 
 async function loadVer(){
   try{
@@ -635,6 +667,21 @@ async function loadVer(){
   }catch{}
 }
 loadVer(); setInterval(loadVer,60000);
+
+/* スマホ初回: トークン未設定なら設定シートを開くよう促す */
+(()=>{
+  const tok=localStorage.getItem('evo_token')||'';
+  if(!tok){
+    setTimeout(()=>{
+      const b=document.createElement('div');
+      b.style.cssText='position:fixed;top:calc(52px + env(safe-area-inset-top,0px) + 10px);left:50%;transform:translateX(-50%);background:#1c1c28;border:1px solid rgba(16,185,129,.3);color:#6ee7b7;font-size:13px;padding:10px 18px;border-radius:12px;z-index:50;cursor:pointer;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.4)';
+      b.textContent='⚙️ 設定からトークンを入力してください';
+      b.onclick=()=>{openSheet();b.remove();};
+      document.body.appendChild(b);
+      setTimeout(()=>b.remove(),8000);
+    },600);
+  }
+})();
 </script>
 </body>
 </html>
