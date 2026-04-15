@@ -155,9 +155,24 @@ main { flex: 1; overflow: hidden; }
   border-radius: var(--r) var(--r) var(--r) 5px;
 }
 /* markdown inside agent bubble */
+.code-wrap { position: relative; margin: 10px 0; }
+.code-wrap .copy-btn {
+  position: absolute; top: 8px; right: 8px;
+  background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12);
+  color: rgba(255,255,255,.5); border-radius: 6px;
+  padding: 3px 9px; font: 11px/1.5 system-ui; cursor: pointer;
+  transition: all .15s; opacity: 0;
+}
+.code-wrap:hover .copy-btn { opacity: 1; }
+.copy-btn.copied { color: #6ee7b7; border-color: #6ee7b7; }
+.lang-tag {
+  position: absolute; top: 8px; left: 12px;
+  font: 10px 'SF Mono',Menlo,monospace; color: rgba(255,255,255,.25);
+  text-transform: uppercase; letter-spacing: .05em; pointer-events: none;
+}
 .bub.agent pre {
   background: var(--s3); border: 1px solid var(--bd2);
-  border-radius: 10px; padding: 13px 15px; margin: 10px 0;
+  border-radius: 10px; padding: 13px 15px; margin: 0;
   overflow-x: auto; font: 13px/1.55 'SF Mono','Fira Code',Menlo,monospace;
   color: #c8d3f5;
 }
@@ -438,15 +453,28 @@ const removeWelcome=()=>{ const w=$('#welcome'); if(w)w.remove(); };
 /* markdown renderer */
 function render(raw){
   let s=raw
-    .replace(/```(\w*)\n?([\s\S]*?)```/g,(_,l,c)=>`<pre><code>${esc(c.trim())}</code></pre>`)
+    .replace(/```(\w*)\n?([\s\S]*?)```/g,(_,l,c)=>{
+      const code=esc(c.trim());
+      const lang=l?`<span class="lang-tag">${esc(l)}</span>`:'';
+      return `<div class="code-wrap">${lang}<button class="copy-btn" onclick="copyCode(this)">copy</button><pre><code>${code}</code></pre></div>`;
+    })
     .replace(/`([^`\n]+)`/g,(_,c)=>`<code>${esc(c)}</code>`)
     .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
     .replace(/^#{1,3}\s+(.+)$/gm,(_,t)=>`<h3>${t}</h3>`)
     .replace(/^\s*[-*]\s+(.+)$/gm,(_,t)=>`<li>${t}</li>`)
-    .replace(/(<li>.*<\/li>)/s,m=>`<ul>${m}</ul>`);
+    .replace(/(<li>.*<\/li>)/s,m=>`<ul>${m}</ul>`)
+    .replace(/(https?:\/\/[^\s<>"]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');
   // newlines outside pre
   s=s.replace(/(?<!>)\n(?!<)/g,'<br>');
   return s;
+}
+
+function copyCode(btn){
+  const code=btn.closest('.code-wrap').querySelector('code').innerText;
+  navigator.clipboard.writeText(code).then(()=>{
+    btn.textContent='copied!'; btn.classList.add('copied');
+    setTimeout(()=>{ btn.textContent='copy'; btn.classList.remove('copied'); },2000);
+  });
 }
 
 const avatarSVG=`<div class="avatar"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>`;

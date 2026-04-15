@@ -7,8 +7,22 @@ on:
     branches: [main, master]
 
 jobs:
-  build-agent:
-    name: Build agent.v11 (macOS)
+  build-linux:
+    name: Compile check (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: sudo apt-get install -y libcurl4-openssl-dev
+      - name: Compile agent.v11
+        run: |
+          cc -O2 -Wall -Wno-unused-result -Wno-comment -std=c99 \
+            -D_POSIX_C_SOURCE=200809L \
+            -o agent.v11 agent.v11.c cJSON.c -lcurl -lm
+          echo "Linux build OK"
+
+  build-macos:
+    name: Build + server (macOS)
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,7 +35,6 @@ jobs:
           cc -O2 -Wall -Wno-unused-result -Wno-comment -std=c99 \
             -D_POSIX_C_SOURCE=200809L -D_DARWIN_C_SOURCE \
             -o agent.v11 agent.v11.c cJSON.c -lcurl -lm
-          ./agent.v11 --version || ./agent.v11 --help || true
           echo "Build successful: $(file agent.v11)"
 
       - name: Build Swift server

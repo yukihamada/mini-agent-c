@@ -22,6 +22,8 @@ A lightweight autonomous AI agent written in **C**, powered by local **MLX LLMs*
 | ⚡ **Self-Evolution** | Agent reads its own C source, improves it, compiles, and evaluates |
 | 🔧 **16+ Tools** | File ops, bash, memory, Fly.io, Telegram, Gmail, GitHub, M5 Mac SSH |
 | 🛡️ **Resource Guard** | Auto-kills agents at CPU >92% / RAM >90% |
+| ⏳ **Request Queue** | Busy? New requests wait instead of failing |
+| 🔄 **Auto-restart** | Server resurrects itself after any crash |
 | 🔄 **Fallback** | MLX failure → Claude Haiku (Anthropic) |
 | 🔒 **Auth** | Bearer token + safe-area-aware mobile UI |
 
@@ -220,4 +222,12 @@ mini-agent-c/
 
 ---
 
-MIT — built by [yukihamada](https://github.com/yukihamada)
+## 🤝 Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) — adding a tool is as simple as dropping a `.sh` file into `.agent/tools/`.
+
+---
+
+## 📄 License
+
+[MIT](LICENSE) — built by [yukihamada](https://github.com/yukihamada)

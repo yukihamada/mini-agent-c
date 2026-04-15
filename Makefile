@@ -34,8 +34,11 @@ agent.v10: agent.v10.c cJSON.c cJSON.h
 agent.v11: agent.v11.c cJSON.c cJSON.h
 	$(CC) $(CFLAGS) -o agent.v11 agent.v11.c cJSON.c $(LDFLAGS)
 
-test: agent.v3
-	./eval.sh ./agent.v3
+test: agent.v11
+	@echo "=== compile check: agent.v11 ==="
+	$(CC) $(CFLAGS) -o /tmp/agent-test agent.v11.c cJSON.c $(LDFLAGS) && echo "OK"
+	@echo "=== eval ==="
+	./eval.sh ./agent.v11
 
 server: web/server.swift
 	swiftc -O web/server.swift -o web/server-swift
