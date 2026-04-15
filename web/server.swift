@@ -743,7 +743,7 @@ func sayTTS(_ conn: Conn, _ text: String) {
         .appendingPathComponent("tts_\(Int.random(in: 0..<999999)).aiff")
     let p = Process()
     p.executableURL = URL(fileURLWithPath: "/usr/bin/say")
-    p.arguments = ["-o", tmp.path, "--data-format=LEF32@22050", text]
+    p.arguments = ["-o", tmp.path, text]
     guard (try? p.run()) != nil else { conn.err(500, "say failed"); return }
     p.waitUntilExit()
     defer { try? FileManager.default.removeItem(at: tmp) }
