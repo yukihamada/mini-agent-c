@@ -98,26 +98,49 @@ main { flex: 1; overflow: hidden; }
   align-items: center; justify-content: center;
   min-height: 58vh; padding: 32px 24px;
   text-align: center; gap: 0;
+  position: relative; overflow: hidden;
 }
+/* ambient glow orbs */
+.welcome::before, .welcome::after {
+  content: ''; position: absolute; border-radius: 50%; pointer-events: none; filter: blur(60px);
+}
+.welcome::before {
+  width: 300px; height: 300px;
+  background: radial-gradient(circle, rgba(16,185,129,.12) 0%, transparent 70%);
+  top: -60px; left: 50%; transform: translateX(-50%);
+  animation: orb1 8s ease-in-out infinite;
+}
+.welcome::after {
+  width: 200px; height: 200px;
+  background: radial-gradient(circle, rgba(139,92,246,.1) 0%, transparent 70%);
+  bottom: 20px; right: 10%;
+  animation: orb2 11s ease-in-out infinite;
+}
+@keyframes orb1 { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-20px)} }
+@keyframes orb2 { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-15px) scale(1.1)} }
 .welcome-visual {
-  position: relative; margin-bottom: 24px;
+  position: relative; margin-bottom: 24px; z-index: 1;
 }
 .welcome-ring {
-  width: 80px; height: 80px; border-radius: 24px;
-  background: linear-gradient(135deg, rgba(16,185,129,.15) 0%, rgba(139,92,246,.1) 100%);
-  border: 1px solid rgba(16,185,129,.2);
+  width: 88px; height: 88px; border-radius: 28px;
+  background: linear-gradient(135deg, rgba(16,185,129,.18) 0%, rgba(139,92,246,.12) 100%);
+  border: 1px solid rgba(16,185,129,.25);
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 0 48px rgba(16,185,129,.1), inset 0 1px 0 rgba(255,255,255,.05);
+  box-shadow: 0 0 60px rgba(16,185,129,.15), 0 0 120px rgba(16,185,129,.06), inset 0 1px 0 rgba(255,255,255,.07);
+  animation: ringPulse 4s ease-in-out infinite;
 }
-.welcome h1 { font-size: 28px; font-weight: 800; letter-spacing: -.04em; margin-bottom: 8px; }
-.welcome-sub { font-size: 14px; color: var(--sub); line-height: 1.75; margin-bottom: 28px; }
-.chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 400px; }
+@keyframes ringPulse { 0%,100%{box-shadow:0 0 60px rgba(16,185,129,.15),0 0 120px rgba(16,185,129,.06),inset 0 1px 0 rgba(255,255,255,.07)} 50%{box-shadow:0 0 80px rgba(16,185,129,.25),0 0 160px rgba(16,185,129,.1),inset 0 1px 0 rgba(255,255,255,.07)} }
+.welcome h1 { font-size: 30px; font-weight: 800; letter-spacing: -.04em; margin-bottom: 8px; z-index:1; }
+.welcome-sub { font-size: 14px; color: var(--sub); line-height: 1.85; margin-bottom: 28px; z-index:1; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 440px; z-index:1; }
 .chip {
-  font-size: 13px; padding: 8px 16px; border-radius: 22px;
+  font-size: 13px; padding: 9px 17px; border-radius: 22px;
   border: 1px solid var(--bd2); background: var(--s3); color: var(--sub);
-  cursor: pointer; transition: all .15s;
+  cursor: pointer; transition: all .2s cubic-bezier(.34,1.56,.64,1);
+  display: flex; align-items: center; gap: 6px;
 }
-.chip:active { color: var(--em); border-color: rgba(16,185,129,.4); background: var(--em-d); transform: scale(.95); }
+.chip:hover { color: var(--text); border-color: rgba(16,185,129,.3); background: var(--s4); transform: translateY(-1px); }
+.chip:active { color: var(--em); border-color: rgba(16,185,129,.4); background: var(--em-d); transform: scale(.94); }
 
 /* rows */
 @keyframes msgIn { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:none } }
@@ -215,14 +238,20 @@ main { flex: 1; overflow: hidden; }
 /* meta / done / error */
 .meta-row { padding: 3px 14px 3px 48px; animation: msgIn .12s ease; }
 .done-tag {
-  display: inline-flex; align-items: center; gap: 5px; font-size: 11px;
-  color: var(--em); background: var(--em-d); border: 1px solid rgba(16,185,129,.2);
-  padding: 3px 10px; border-radius: 6px;
+  display: inline-flex; align-items: center; gap: 6px; font-size: 11px;
+  color: var(--em); background: var(--em-d); border: 1px solid rgba(16,185,129,.25);
+  padding: 4px 12px; border-radius: 8px;
+  box-shadow: 0 0 12px rgba(16,185,129,.08);
 }
 .err-bubble {
   max-width: 80%; padding: 10px 14px; border-radius: var(--r);
   background: rgba(244,63,94,.07); border: 1px solid rgba(244,63,94,.22);
   color: #fda4af; font-size: 14px;
+}
+/* elapsed timer */
+#elapsed {
+  font-size: 11px; color: var(--muted); margin-left: 6px;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ─── INPUT ─── */
@@ -350,6 +379,7 @@ main { flex: 1; overflow: hidden; }
   <div class="status-wrap">
     <span class="sdot" id="sdot"></span>
     <span class="stext" id="stext">idle</span>
+    <span id="elapsed"></span>
   </div>
   <div class="spacer"></div>
   <button class="hbtn" id="settings-btn" aria-label="設定">
@@ -368,10 +398,12 @@ main { flex: 1; overflow: hidden; }
       <h1>Evo</h1>
       <p class="welcome-sub">自律エージェント — ローカル LLM で動作<br>コード実行・ファイル操作・外部サービス連携</p>
       <div class="chips" id="welcome-chips">
-        <button class="chip" data-t="Use bash to show date, uptime, and disk usage">システム状態</button>
-        <button class="chip" data-t="Use bash to list top 5 CPU processes">プロセス確認</button>
-        <button class="chip" data-t="bash: git log --oneline -10">最近のコミット</button>
-        <button class="chip" data-t="Run eval.sh ./agent.v11 and report score">自己評価スコア</button>
+        <button class="chip" data-t="Use bash to show date, uptime, disk usage, and memory">🖥️ システム状態</button>
+        <button class="chip" data-t="Use bash to list top 5 CPU processes with their usage">⚡ プロセス確認</button>
+        <button class="chip" data-t="bash: git log --oneline -10">📝 最近のコミット</button>
+        <button class="chip" data-t="Run eval.sh ./agent.v11 and report the score">🎯 自己評価スコア</button>
+        <button class="chip" data-t="List all files in the current directory with sizes, then summarize what this project does">🔍 プロジェクト解析</button>
+        <button class="chip" data-t="Check if MLX server is running at localhost:5001, list available models, and report status">🧠 MLX状態確認</button>
       </div>
     </div>
   </div>
@@ -533,7 +565,9 @@ function doneOk(dur){
   clearThink();
   if(!textBuf){ agentRow?.remove(); agentRow=null; agentBubble=null; }
   const m=document.createElement('div'); m.className='meta-row';
-  m.innerHTML=`<span class="done-tag"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>${dur}s</span>`;
+  const d=typeof dur==='number'?dur:parseFloat(dur)||0;
+  const ds=d<60?`${d.toFixed(1)}s`:`${Math.floor(d/60)}m${(d%60).toFixed(0)}s`;
+  m.innerHTML=`<span class="done-tag"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>完了 · ${ds}</span>`;
   msgsEl.appendChild(m); scrollEnd();
   agentRow=null; agentBubble=null; textBuf='';
 }
@@ -593,7 +627,7 @@ function onEvent(text,isEv){
 
 async function run(){
   const task=taskEl.value.trim(); if(!task)return;
-  taskEl.blur(); running=true; ui(); closeSheet();
+  taskEl.blur(); running=true; ui(); closeSheet(); startElapsed();
   addUser(task); textBuf=''; taskEl.value=''; taskEl.style.height='';
   const body={task,model:$('#model').value,budget:parseInt($('#budget').value),
     max_turns:parseInt($('#max-turns').value),backend:'openai',
@@ -607,12 +641,12 @@ async function run(){
       let i;while((i=buf.indexOf('\n\n'))>=0){onEvent(buf.slice(0,i),false);buf=buf.slice(i+2);}
     }
   }catch(e){if(e.name!=='AbortError')doneErr(e.message);}
-  finally{running=false;ui();reader=null;agentRow=null;agentBubble=null;textBuf='';}
+  finally{running=false;ui();stopElapsed();reader=null;agentRow=null;agentBubble=null;textBuf='';}
 }
 
 async function doEvolve(){
   if(running||evolving)return;
-  evolving=true; ui(); closeSheet(); textBuf='';
+  evolving=true; ui(); closeSheet(); startElapsed(); textBuf='';
   try{
     const res=await fetch('/evolve',{method:'POST',headers:hdrs(false)});
     if(!res.ok){removeWelcome();doneErr(`HTTP ${res.status}`);return;}
@@ -629,11 +663,17 @@ async function doStop(){
   if(reader){try{reader.cancel();}catch{}reader=null;}
   try{await fetch('/stop',{method:'POST',headers:hdrs(false)});}catch{}
   if(agentBubble){clearThink();agentBubble.innerHTML='<span style="color:var(--sub)">⏹ 停止</span>';}
-  running=false;evolving=false;ui();
+  running=false;evolving=false;ui();stopElapsed();
   agentRow=null;agentBubble=null;textBuf='';
 }
 
 const vibe=(ms=8)=>{try{navigator.vibrate&&navigator.vibrate(ms);}catch{}};
+
+/* elapsed timer */
+let elapsedTimer=null, elapsedStart=0;
+const elapsedEl=$('#elapsed');
+function startElapsed(){ elapsedStart=Date.now(); elapsedEl.textContent='0s'; elapsedTimer=setInterval(()=>{ const s=Math.floor((Date.now()-elapsedStart)/1000); elapsedEl.textContent=s<60?`${s}s`:`${Math.floor(s/60)}m${s%60}s`; },1000); }
+function stopElapsed(){ clearInterval(elapsedTimer); elapsedEl.textContent=''; };
 
 sendBtn.addEventListener('click',()=>{vibe();(running||evolving)?doStop():run();});
 $('#evo-btn').addEventListener('click',()=>{vibe();evolving?doStop():doEvolve();});
