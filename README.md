@@ -1,6 +1,8 @@
 # ⚡ Evo — Autonomous Self-Evolving Agent
 
+[![Build](https://github.com/yukihamada/mini-agent-c/actions/workflows/build.yml/badge.svg)](https://github.com/yukihamada/mini-agent-c/actions/workflows/build.yml)
 [![GitHub](https://img.shields.io/badge/github-mini--agent--c-181717?logo=github)](https://github.com/yukihamada/mini-agent-c)
+[![Release](https://img.shields.io/github/v/release/yukihamada/mini-agent-c?logo=github)](https://github.com/yukihamada/mini-agent-c/releases)
 [![Web UI](https://img.shields.io/badge/web-mini--agent.yukihamada.jp-10b981?logo=safari)](https://mini-agent.yukihamada.jp)
 [![Swift](https://img.shields.io/badge/server-Swift-fa7343?logo=swift)](web/server.swift)
 [![iOS](https://img.shields.io/badge/iOS-Evo_App-000?logo=apple)](ios/)
@@ -48,31 +50,33 @@ MLX LLM Server (port 5001)             ← mlx_lm.server on M5 Mac
 
 ## 🚀 Quick Start
 
-### 1. Build the agent
-
 ```bash
 git clone https://github.com/yukihamada/mini-agent-c
 cd mini-agent-c
-make agent.v11
+
+# Build agent + Swift server
+make agent.v11 server
 ```
 
-### 2. Start MLX LLM server (Apple Silicon required)
+### Start MLX LLM server (Apple Silicon required)
 
 ```bash
 pip install mlx-lm
 mlx_lm.server --model mlx-community/Qwen3.5-9B-4bit --port 5001
 ```
 
-### 3. Start the web server
+### Start the web server (with auto-restart)
 
 ```bash
-# Build Swift server (macOS only)
-swiftc -O web/server.swift -o web/server-swift
-
-# Run
 MINI_AGENT_WEB_TOKEN=your_token \
 CPU_REFUSE_PCT=85 CPU_KILL_PCT=92 \
-./web/server-swift
+make run
+```
+
+Or for one-shot CLI use:
+
+```bash
+make agent.v11 server
 ```
 
 Open `http://localhost:7878` — or expose via Cloudflare Tunnel for remote access.

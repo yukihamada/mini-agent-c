@@ -1,29 +1,49 @@
-# Binaries only (track .c sources)
+# Compiled binaries (track .c/.swift sources only)
 agent
-/agent.v2
-/agent.v3
-/agent.v4
-/agent.v5
-/agent.v6
+agent.v2
+agent.v3
+agent.v4
+agent.v5
+agent.v6
+agent.v7
+agent.v8
+agent.v9
+agent.v10
+agent.v11
+agent.v12
+web/server-swift
+
+# Object files
 *.o
+
+# Runtime state
 .agent/audit.log
 .agent/evolve_gen*.log
 .agent/STOP
-# Test outputs
+.agent/web_history.jsonl
+.agent/eval_history.jsonl
+.agent/memory.md
+
+# Test/bench outputs
 hello.txt
 evolved.txt
 selftest.txt
 result.txt
 leak.txt
+bench_*.txt
+
+# Secrets
 .env
+*.env.*
+
+# Logs
 *.log
-web/server-swift
+
+# macOS
 .DS_Store
-agent.v11
-agent.v12
-.agent/web_history.jsonl
-.agent/eval_history.jsonl
-.agent/memory.md
+**/.DS_Store
+
+# Xcode
 *.xcuserstate
 xcuserdata/
 ios/build/

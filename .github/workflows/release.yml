@@ -1,0 +1,62 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Build & Release (macOS)
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: brew install curl
+
+      - name: Build agent.v11
+        run: |
+          cc -O2 -Wall -Wno-unused-result -Wno-comment -std=c99 \
+            -D_POSIX_C_SOURCE=200809L -D_DARWIN_C_SOURCE \
+            -o agent.v11 agent.v11.c cJSON.c -lcurl -lm
+
+      - name: Build Swift server
+        run: swiftc -O web/server.swift -o web/server-swift
+
+      - name: Package release
+        run: |
+          VERSION="${{ github.ref_name }}"
+          mkdir -p release/evo-${VERSION}-macos
+          cp agent.v11 web/server-swift web/run.sh web/index.html release/evo-${VERSION}-macos/
+          cp cJSON.c cJSON.h Makefile README.md release/evo-${VERSION}-macos/
+          tar -czf evo-${VERSION}-macos.tar.gz -C release evo-${VERSION}-macos
+          echo "TARBALL=evo-${VERSION}-macos.tar.gz" >> $GITHUB_ENV
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.TARBALL }}
+          generate_release_notes: true
+          body: |
+            ## Evo ${{ github.ref_name }}
+
+            ### Installation
+
+            ```bash
+            # Download and extract
+            curl -L https://github.com/yukihamada/mini-agent-c/releases/download/${{ github.ref_name }}/${{ env.TARBALL }} | tar xz
+            cd evo-${{ github.ref_name }}-macos
+
+            # Start MLX server (Apple Silicon required)
+            mlx_lm.server --model mlx-community/Qwen3.5-9B-4bit --port 5001
+
+            # Run web server
+            MINI_AGENT_WEB_TOKEN=your_token ./run.sh
+
+            # Or CLI
+            ./agent.v11 "Your task here"
+            ```
