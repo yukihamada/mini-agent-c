@@ -739,16 +739,18 @@ func handleSpeakPost(_ conn: Conn, body: Data) {
 }
 
 func sayTTS(_ conn: Conn, _ text: String) {
+    // Use M4A (AAC) — works on iOS Safari, smaller than AIFF
     let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
-        .appendingPathComponent("tts_\(Int.random(in: 0..<999999)).aiff")
+        .appendingPathComponent("tts_\(Int.random(in: 0..<999999)).m4a")
     let p = Process()
     p.executableURL = URL(fileURLWithPath: "/usr/bin/say")
-    p.arguments = ["-o", tmp.path, text]
+    let voice = ENV["TTS_VOICE"] ?? ""
+    p.arguments = voice.isEmpty ? ["-o", tmp.path, text] : ["-v", voice, "-o", tmp.path, text]
     guard (try? p.run()) != nil else { conn.err(500, "say failed"); return }
     p.waitUntilExit()
     defer { try? FileManager.default.removeItem(at: tmp) }
     if let data = try? Data(contentsOf: tmp) {
-        conn.respond(headers: [("Content-Type", "audio/aiff"), ("Cache-Control", "no-cache")], body: data)
+        conn.respond(headers: [("Content-Type", "audio/mp4"), ("Cache-Control", "no-cache")], body: data)
     } else {
         conn.err(500, "no audio")
     }

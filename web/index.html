@@ -537,10 +537,22 @@ main { flex: 1; overflow: hidden; position: relative; }
   color: #fff; 
   box-shadow: 0 4px 16px rgba(244,63,94,0.52), inset 0 1px 0 rgba(255,255,255,0.2);
 }
-.send:active:not(:disabled) { 
-  transform: scale(0.91); 
+.send:active:not(:disabled) {
+  transform: scale(0.91);
   box-shadow: 0 3px 12px rgba(16,185,129,0.42);
 }
+.mic-btn {
+  width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+  border: 1.5px solid var(--bd2); background: var(--s2); color: var(--sub);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all .2s; -webkit-tap-highlight-color: transparent;
+}
+.mic-btn:hover { border-color: rgba(16,185,129,.4); color: var(--em); }
+.mic-btn.recording {
+  border-color: #f43f5e; color: #f43f5e; background: rgba(244,63,94,.1);
+  animation: pulse 1s ease-in-out infinite;
+}
+.mic-btn:active { transform: scale(.88); }
 .send.stop:active:not(:disabled) {
   box-shadow: 0 3px 12px rgba(244,63,94,0.42);
 }
@@ -722,7 +734,10 @@ main { flex: 1; overflow: hidden; position: relative; }
 
 <div class="input-area">
   <div class="input-pill">
-    <textarea id="task" placeholder="何でも聞いて… (Cmd+Enter で送信)" rows="1"></textarea>
+    <button class="mic-btn" id="mic-btn" title="音声入力" style="display:none">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+    </button>
+    <textarea id="task" placeholder="何でも聞いて…" rows="1"></textarea>
     <button class="send" id="send" disabled>
       <svg id="ico-send" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
       <svg id="ico-stop" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
@@ -1053,6 +1068,43 @@ async function doStop(){
 }
 
 const vibe=(ms=8)=>{try{navigator.vibrate&&navigator.vibrate(ms);}catch{}};
+
+/* ─── 音声入力 ─── */
+const micBtn=$('#mic-btn');
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+if(SR){
+  micBtn.style.display='flex';
+  const rec=new SR();
+  rec.lang='ja-JP'; rec.continuous=false; rec.interimResults=true;
+  let finalText='';
+  rec.onstart=()=>{micBtn.classList.add('recording'); vibe(10);};
+  rec.onend=()=>{
+    micBtn.classList.remove('recording');
+    if(finalText.trim()){
+      taskEl.value=finalText.trim();
+      taskEl.dispatchEvent(new Event('input'));
+      // 自動送信
+      setTimeout(()=>run(),200);
+    }
+    finalText='';
+  };
+  rec.onerror=()=>micBtn.classList.remove('recording');
+  rec.onresult=e=>{
+    let interim=''; finalText='';
+    for(const r of e.results){
+      if(r.isFinal) finalText+=r[0].transcript;
+      else interim+=r[0].transcript;
+    }
+    taskEl.value=(finalText||interim);
+    taskEl.dispatchEvent(new Event('input'));
+  };
+  let recActive=false;
+  micBtn.addEventListener('click',()=>{
+    vibe();
+    if(recActive){rec.stop();recActive=false;}
+    else{rec.start();recActive=true;}
+  });
+}
 
 sendBtn.addEventListener('click',()=>{vibe();(running||evolving)?doStop():run();});
 $('#evo-btn').addEventListener('click',()=>{vibe();evolving?doStop():doEvolve();});

@@ -34,6 +34,8 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         UIRequiresFullScreen: true
+        NSMicrophoneUsageDescription: "音声入力のためマイクを使用します"
+        NSSpeechRecognitionUsageDescription: "音声でメッセージを送るため音声認識を使用します"
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
         WKAppBoundDomains:
