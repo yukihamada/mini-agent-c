@@ -475,7 +475,7 @@ static char *openai_api_once(const char *api_base, const char *api_key_maybe,
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, h);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_write_cb);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &buf);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 600L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 3600L);
     CURLcode rc = curl_easy_perform(curl);
     long code = 0;
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
@@ -714,7 +714,7 @@ static char *claude_api_stream(const char *api_key, const char *body, long *http
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, h);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, stream_write_cb);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &sc);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 600L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 3600L);
 
     CURLcode rc = curl_easy_perform(curl);
     long code = 0;
@@ -762,7 +762,7 @@ static char *claude_api_once(const char *api_key, const char *body, long *http_c
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, h);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_write_cb);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &buf);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 600L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 3600L);
     CURLcode rc = curl_easy_perform(curl);
     long code = 0;
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);

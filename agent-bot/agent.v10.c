@@ -669,9 +669,7 @@ static char *claude_api_stream(const char *api_key, const char *body, long *http
         : "anthropic-beta: prompt-caching-2024-07-31");
     h = curl_slist_append(h, "content-type: application/json");
     h = curl_slist_append(h, "accept: text/event-stream");
-    { char url[512]; snprintf(url, sizeof(url), "%s/v1/messages",
-        g_api_base[0] ? g_api_base : "https://api.anthropic.com");
-      curl_easy_setopt(curl, CURLOPT_URL, url); }
+    curl_easy_setopt(curl, CURLOPT_URL, "https://api.anthropic.com/v1/messages");
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, stream_body);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long)strlen(stream_body));
@@ -708,9 +706,7 @@ static char *claude_api_once(const char *api_key, const char *body, long *http_c
         ? "anthropic-beta: prompt-caching-2024-07-31,interleaved-thinking-2025-05-14"
         : "anthropic-beta: prompt-caching-2024-07-31");
     h = curl_slist_append(h, "content-type: application/json");
-    { char url[512]; snprintf(url, sizeof(url), "%s/v1/messages",
-        g_api_base[0] ? g_api_base : "https://api.anthropic.com");
-      curl_easy_setopt(curl, CURLOPT_URL, url); }
+    curl_easy_setopt(curl, CURLOPT_URL, "https://api.anthropic.com/v1/messages");
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long)strlen(body));

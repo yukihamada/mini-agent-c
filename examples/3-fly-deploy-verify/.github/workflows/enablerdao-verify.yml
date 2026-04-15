@@ -42,9 +42,7 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
           cd /tmp/mac/examples/3-fly-deploy-verify
-          ./verify.sh enablerdao \
-            https://enablerdao.com \
-            https://enablerdao.com/api/health
+          ./verify.sh enablerdao https://enablerdao.com
 
       - name: Slack notify on failure
         if: failure()

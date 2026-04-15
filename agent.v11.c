@@ -93,6 +93,8 @@ static int   g_interactive     = 0;
 static int   g_allow_http      = 0;
 static int   g_no_parallel     = 0;
 static int   g_stream_bash     = 0;
+static int   g_approve         = 0;   /* --approve: confirm every tool call */
+static int   g_approve_bash    = 0;   /* --approve-bash: confirm only bash */
 static int   g_think_mode      = 0;
 static long  g_think_budget    = 8000;
 static int   g_max_turns       = MAX_TURNS_DEFAULT;
@@ -107,6 +109,7 @@ static char  g_cwd[1024]       = {0};
 static char  g_memory_path[1024] = {0};
 static char  g_checkpoint_dir[1024] = {0};
 static volatile int g_interrupted = 0;
+static time_t       g_session_start = 0;   /* for electricity cost tracking */
 
 typedef struct {
     char name[64];
@@ -471,7 +474,7 @@ static char *openai_api_once(const char *api_base, const char *api_key_maybe,
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, h);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_write_cb);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &buf);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 600L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 3600L);  /* local 122B can take a long time */
     CURLcode rc = curl_easy_perform(curl);
     long code = 0;
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
@@ -2304,6 +2307,24 @@ static cJSON *build_tools_array(void) {
     return tools;
 }
 
+/* ---------- approve prompt ---------- */
+/* Returns 1=execute, 0=skip, -1=abort */
+static int approve_tool(const char *name, cJSON *input) {
+    char *inp_str = cJSON_PrintUnformatted(input);
+    fprintf(stderr, "\n\033[33m[approve]\033[0m \033[1m%s\033[0m %s\n",
+            name, inp_str ? inp_str : "{}");
+    free(inp_str);
+    fprintf(stderr, "  [y]es  [n]o/skip  [a]bort  [!]yes-to-all ? ");
+    fflush(stderr);
+    char buf[64];
+    if (!fgets(buf, sizeof(buf), stdin)) return -1;
+    char c = buf[0];
+    if (c == 'a' || c == 'A') return -1;
+    if (c == '!') { g_approve = 0; g_approve_bash = 0; return 1; } /* disable for rest */
+    if (c == 'n' || c == 'N' || c == 's' || c == 'S') return 0;
+    return 1; /* y or Enter */
+}
+
 /* ---------- tool dispatch ---------- */
 static char *execute_tool(const char *name, cJSON *input) {
     if (g_plan_mode) {
@@ -2313,6 +2334,21 @@ static char *execute_tool(const char *name, cJSON *input) {
                  "[PLAN MODE] would call %s with %s", name, inp_str ? inp_str : "{}");
         free(inp_str);
         return r;
+    }
+
+    /* --approve / --approve-bash gate */
+    int need_approve = g_approve ||
+        (g_approve_bash && strcmp(name, "bash") == 0);
+    if (need_approve) {
+        int ok = approve_tool(name, input);
+        if (ok == -1) {
+            logerr("[abort] user aborted agent\n");
+            exit(0);
+        }
+        if (ok == 0) {
+            char *r = strdup("[skipped by user]");
+            return r;
+        }
     }
 
     cJSON *path    = cJSON_GetObjectItem(input, "path");
@@ -2508,13 +2544,112 @@ static cJSON *compact_messages(const char *api_key, cJSON *messages) {
     return nm;
 }
 
+/* ---------- power / battery info (macOS) ---------- */
+/*
+ * Returns a malloc'd string like:
+ *   "Battery: 78% (discharging, ~2h30m remaining). "
+ *   "Battery: 100% (charging). "
+ *   "Battery: AC power (no battery). "
+ * Returns NULL if pmset not available.
+ */
+static char *get_power_info(void) {
+#ifndef __APPLE__
+    return NULL;
+#else
+    FILE *fp = popen("pmset -g batt 2>/dev/null", "r");
+    if (!fp) return NULL;
+
+    char line[256];
+    char result[512] = {0};
+    int found = 0;
+
+    while (fgets(line, sizeof(line), fp)) {
+        /* Look for lines like:
+         *  -InternalBattery-0 (id=...)  78%; discharging; 2:30 remaining present: true
+         *  -InternalBattery-0 (id=...)  100%; charging; (no estimate) present: true
+         *  Now drawing from 'AC Power'   (no battery line)
+         */
+        if (strstr(line, "InternalBattery") || strstr(line, "Battery")) {
+            int pct = -1;
+            char status[64] = "unknown";
+            char remain[64] = "";
+            /* parse percentage */
+            char *pct_pos = strstr(line, "%");
+            if (pct_pos) {
+                char *p = pct_pos - 1;
+                while (p > line && (*p == ' ' || (*p >= '0' && *p <= '9'))) p--;
+                pct = atoi(p + 1);
+            }
+            /* parse status keyword */
+            if (strstr(line, "discharging")) strcpy(status, "discharging");
+            else if (strstr(line, "charging"))   strcpy(status, "charging");
+            else if (strstr(line, "finishing"))  strcpy(status, "finishing charge");
+            else if (strstr(line, "AC"))         strcpy(status, "AC");
+
+            /* parse remaining time h:mm */
+            char *semi = pct_pos ? strstr(pct_pos, "; ") : NULL;
+            if (semi) {
+                char *next = strstr(semi + 2, "; ");
+                if (next) {
+                    char *timestr = next + 2;
+                    /* trim trailing whitespace */
+                    int h = 0, m = 0;
+                    if (sscanf(timestr, "%d:%d", &h, &m) == 2) {
+                        if (h > 0)
+                            snprintf(remain, sizeof(remain), ", ~%dh%02dm remaining", h, m);
+                        else
+                            snprintf(remain, sizeof(remain), ", ~%dm remaining", m);
+                    }
+                }
+            }
+
+            if (pct >= 0) {
+                if (strcmp(status, "AC") == 0)
+                    snprintf(result, sizeof(result), "Battery: %d%% (AC power)", pct);
+                else
+                    snprintf(result, sizeof(result), "Battery: %d%% (%s%s)", pct, status, remain);
+            }
+            found = 1;
+            break;
+        }
+        if (strstr(line, "AC Power") && !found) {
+            snprintf(result, sizeof(result), "Battery: AC power (no battery)");
+            found = 1;
+        }
+    }
+    pclose(fp);
+
+    if (!found || result[0] == '\0') return NULL;
+
+    /* Append electricity cost estimate */
+    if (g_session_start > 0) {
+        time_t now = time(NULL);
+        double elapsed_min = difftime(now, g_session_start) / 60.0;
+        /* Apple M5 estimated TDP under LLM load: ~25W */
+        double kwh = 25.0 * (elapsed_min / 60.0) / 1000.0;
+        double cost_jpy = kwh * 31.0;  /* ¥31/kWh Japan average */
+        char cost_buf[128];
+        snprintf(cost_buf, sizeof(cost_buf),
+            " Electricity: ~¥%.2f (%.0fmin × 25W × ¥31/kWh).",
+            cost_jpy, elapsed_min);
+        strncat(result, cost_buf, sizeof(result) - strlen(result) - 1);
+    }
+
+    return strdup(result);
+#endif
+}
+
 /* ---------- system prompt ---------- */
 static cJSON *build_system_array(const char *memory) {
     cJSON *arr = cJSON_CreateArray();
     cJSON *base = cJSON_CreateObject();
     cJSON_AddStringToObject(base, "type", "text");
-    cJSON_AddStringToObject(base, "text",
-        "You are mini-agent-c v10, a minimal autonomous agent in pure C. "
+
+    /* Build system text, optionally injecting power info */
+    char *power_info = get_power_info();
+    char sys_text[2048];
+    snprintf(sys_text, sizeof(sys_text),
+        "You are mini-agent-c v11, a minimal autonomous agent in pure C. "
         "Tools: read_file, write_file, edit_file, bash, list_dir, "
         "grep_files (regex search), glob_files (find by pattern), "
         "http_get (fetch URLs, if enabled), todo (task tracking), "
@@ -2527,7 +2662,18 @@ static cJSON *build_system_array(const char *memory) {
         "prefer them over bash grep/find. "
         "Use todo to track multi-step plans. "
         "Work inside the current directory only. "
-        "When the task is complete, respond with a concise summary and STOP calling tools.");
+        "When the task is complete, respond with a concise summary and STOP calling tools."
+        "%s%s",
+        power_info ? " [Host status: " : "",
+        power_info ? power_info       : "");
+    if (power_info) {
+        /* close the bracket */
+        size_t len = strlen(sys_text);
+        if (len < sizeof(sys_text) - 2) { sys_text[len] = ']'; sys_text[len+1] = '\0'; }
+        free(power_info);
+    }
+
+    cJSON_AddStringToObject(base, "text", sys_text);
     cJSON_AddItemToArray(arr, base);
     if (memory && *memory) {
         cJSON *mb = cJSON_CreateObject();
@@ -2803,6 +2949,8 @@ static void usage(const char *prog) {
         "  --model MODEL         claude-sonnet-4-5 (default), claude-haiku-4-5, claude-opus-4-5\n"
         "  --max-turns N         turn cap (default %d)\n"
         "  --budget N            token budget cap (default %d)\n"
+        "  --approve  --step     confirm every tool call before executing\n"
+        "  --approve-bash        confirm only bash commands\n"
         "  --plan                plan mode, no side effects\n"
         "  --sandbox             bash runs under sandbox-exec\n"
         "  --stream              SSE streaming (Anthropic backend only)\n"
@@ -2826,6 +2974,7 @@ static void usage(const char *prog) {
 
 /* ---------- main ---------- */
 int main(int argc, char **argv) {
+    g_session_start = time(NULL);
     signal(SIGINT, sigint_handler);
     realpath(argv[0], g_self_path);
     if (!getcwd(g_cwd, sizeof(g_cwd))) strcpy(g_cwd, ".");
@@ -2839,7 +2988,7 @@ int main(int argc, char **argv) {
     for (int i = 1; i < argc; i++) {
         const char *a = argv[i];
         if (strcmp(a, "--help") == 0 || strcmp(a, "-h") == 0) { usage(argv[0]); return 0; }
-        else if (strcmp(a, "--version") == 0) { printf("mini-agent-c v10.0\n"); return 0; }
+        else if (strcmp(a, "--version") == 0) { printf("mini-agent-c v11.0\n"); return 0; }
         else if (strcmp(a, "--model") == 0 && i + 1 < argc) { model = argv[++i]; }
         else if (strcmp(a, "--max-turns") == 0 && i + 1 < argc) { g_max_turns = atoi(argv[++i]); }
         else if (strcmp(a, "--budget") == 0 && i + 1 < argc) { g_token_budget = atol(argv[++i]); }
@@ -2854,6 +3003,8 @@ int main(int argc, char **argv) {
         else if (strcmp(a, "--think") == 0) { g_think_mode = 1; }
         else if (strcmp(a, "--think-budget") == 0 && i + 1 < argc) { g_think_budget = atol(argv[++i]); }
         else if (strcmp(a, "--interactive") == 0 || strcmp(a, "-i") == 0) { g_interactive = 1; }
+        else if (strcmp(a, "--approve") == 0 || strcmp(a, "--step") == 0) { g_approve = 1; }
+        else if (strcmp(a, "--approve-bash") == 0) { g_approve_bash = 1; }
         else if (strcmp(a, "--backend") == 0 && i + 1 < argc) {
             const char *b = argv[++i];
             if (strcmp(b, "openai") == 0) g_backend = BACKEND_OPENAI;

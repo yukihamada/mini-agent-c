@@ -1,0 +1,39 @@
+name: banto deploy verify
+# For banto (monorepo: web/api/worker/db)
+
+on:
+  workflow_run:
+    workflows: ["Deploy"]
+    types: [completed]
+  workflow_dispatch: {}
+
+jobs:
+  verify:
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq libcurl4-openssl-dev
+
+      - run: curl -L https://fly.io/install.sh | sh; echo "$HOME/.fly/bin" >> $GITHUB_PATH
+
+      - run: |
+          git clone --depth 1 https://github.com/yukihamada/mini-agent-c.git /tmp/mac
+          cd /tmp/mac && gcc -O2 -Wall -Wno-comment -std=c99 -D_POSIX_C_SOURCE=200809L \
+              -o agent.v4 agent.v4.c cJSON.c -lcurl -lm
+
+      - name: Verify banto
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          # Note: banto.work is hosted via Cloudflare→Lovable, not Fly.
+          # banto-web.fly.dev is the Fly origin (currently unused by the domain).
+          # We probe: (1) banto.work root (must 200, any origin OK)
+          #          (2) banto-api health (Fly Rust API)
+          #          (3) banto-web.fly.dev health (Fly nginx backup)
+          cd /tmp/mac/examples/3-fly-deploy-verify
+          ./verify.sh banto \
+            https://banto.work \
+            https://banto-api.fly.dev/health \
+            https://banto-web.fly.dev/health

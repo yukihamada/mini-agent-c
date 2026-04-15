@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Evo">
+<meta name="theme-color" content="#06060e">
+<link rel="manifest" href="/manifest.json">
+<title>Evo</title>
+<style>
+:root {
+  --bg:       #06060e;
+  --s1:       #0c0c16;
+  --s2:       #11111c;
+  --s3:       #171724;
+  --border:   #1d1d2c;
+  --border2:  #252535;
+  --text:     #e4e4f2;
+  --sub:      #8888a0;
+  --muted:    #44445a;
+  --accent:   #10b981;
+  --ag:       rgba(16,185,129,.18);
+  --ad:       rgba(16,185,129,.08);
+  --error:    #f43f5e;
+  --tool:     #818cf8;
+  --r:        16px;
+  --shadow:   0 8px 32px rgba(0,0,0,.5);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+body {
+  height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* ── scrollbar ── */
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* ── header ── */
+header {
+  position: relative;
+  z-index: 10;
+  padding: 0 16px;
+  padding-top: max(10px, env(safe-area-inset-top));
+  height: calc(54px + env(safe-area-inset-top, 0px));
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(6,6,14,.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.logo {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 17px; font-weight: 700;
+  color: var(--text); letter-spacing: -.02em;
+}
+.logo-icon {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 12px rgba(16,185,129,.35);
+}
+.status-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--muted); flex-shrink: 0;
+  transition: background .3s, box-shadow .3s;
+}
+.status-dot.on {
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+  animation: breathe 2s ease-in-out infinite;
+}
+@keyframes breathe { 0%,100%{opacity:1} 50%{opacity:.5} }
+.spacer { flex: 1; }
+.hbtn {
+  width: 34px; height: 34px; border-radius: 9px;
+  border: 1px solid var(--border2);
+  background: var(--s2); color: var(--sub);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.hbtn:active { opacity: .6; }
+.hbtn.on { color: var(--accent); border-color: rgba(16,185,129,.35); background: var(--ad); }
+
+/* ── messages ── */
+main { flex: 1; overflow: hidden; }
+.msgs {
+  height: 100%;
+  overflow-y: auto;
+  padding: 24px 0 12px;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* welcome */
+.welcome {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  min-height: 55vh;
+  padding: 40px 28px;
+  text-align: center;
+}
+.welcome-orb {
+  width: 72px; height: 72px; border-radius: 22px;
+  background: linear-gradient(135deg, rgba(16,185,129,.2), rgba(5,150,105,.1));
+  border: 1px solid rgba(16,185,129,.25);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 20px;
+  box-shadow: 0 0 40px rgba(16,185,129,.12);
+}
+.welcome h1 { font-size: 26px; font-weight: 700; letter-spacing: -.03em; margin-bottom: 6px; }
+.welcome p { font-size: 14px; color: var(--sub); margin-bottom: 24px; line-height: 1.7; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 380px; }
+.chip {
+  font-size: 13px; padding: 8px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border2);
+  background: var(--s2); color: var(--sub);
+  cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s, transform .1s;
+}
+.chip:active { transform: scale(.96); color: var(--accent); border-color: rgba(16,185,129,.4); background: var(--ad); }
+
+/* rows */
+@keyframes fadeUp { from { opacity:0; transform:translateY(6px) } to { opacity:1; transform:none } }
+.row {
+  display: flex; align-items: flex-end; gap: 8px;
+  padding: 2px 16px; margin-bottom: 4px;
+  animation: fadeUp .2s ease;
+}
+.row.user  { flex-direction: row-reverse; }
+.row.agent { flex-direction: row; }
+
+/* agent avatar */
+.avatar {
+  width: 28px; height: 28px; border-radius: 9px; flex-shrink: 0;
+  background: linear-gradient(135deg, #10b981, #059669);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 2px;
+  box-shadow: 0 2px 8px rgba(16,185,129,.25);
+}
+
+/* bubbles */
+.bubble {
+  max-width: 78%;
+  padding: 12px 16px;
+  font-size: 15px; line-height: 1.65;
+  word-break: break-word;
+}
+.bubble.user {
+  background: linear-gradient(135deg, rgba(16,185,129,.15), rgba(5,150,105,.1));
+  border: 1px solid rgba(16,185,129,.22);
+  border-radius: var(--r) var(--r) 4px var(--r);
+  white-space: pre-wrap;
+}
+.bubble.agent {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: var(--r) var(--r) var(--r) 4px;
+}
+
+/* code blocks inside agent bubble */
+.bubble.agent pre {
+  background: var(--s3);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin: 8px 0;
+  overflow-x: auto;
+  font: 13px/1.5 'SF Mono','Fira Code',Menlo,monospace;
+  color: #c8d3f5;
+}
+.bubble.agent code:not(pre code) {
+  background: var(--s3);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font: 13px 'SF Mono','Fira Code',Menlo,monospace;
+  color: #a5f3d0;
+}
+
+/* thinking dots */
+.thinking-dots span {
+  display: inline-block;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--sub);
+  margin: 0 2px;
+  animation: dot 1.4s ease-in-out infinite;
+}
+.thinking-dots span:nth-child(2) { animation-delay: .2s; }
+.thinking-dots span:nth-child(3) { animation-delay: .4s; }
+@keyframes dot { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
+
+/* tool chip row */
+.tool-row { padding: 1px 16px 1px 52px; animation: fadeUp .15s ease; }
+.tool-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; color: var(--tool);
+  background: rgba(129,140,248,.07);
+  border: 1px solid rgba(129,140,248,.18);
+  padding: 3px 10px; border-radius: 6px;
+}
+
+/* done / error tags */
+.meta-row { padding: 3px 16px 3px 52px; }
+.done-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; color: var(--accent);
+  background: var(--ad); border: 1px solid rgba(16,185,129,.2);
+  padding: 3px 10px; border-radius: 6px;
+}
+.err-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; color: var(--error);
+  background: rgba(244,63,94,.07);
+  border: 1px solid rgba(244,63,94,.22);
+  padding: 4px 12px; border-radius: 8px;
+}
+
+/* ── input ── */
+.input-area {
+  padding: 10px 14px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  background: rgba(6,6,14,.9);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.input-pill {
+  display: flex; align-items: flex-end; gap: 8px;
+  background: var(--s2);
+  border: 1.5px solid var(--border2);
+  border-radius: 20px;
+  padding: 6px 6px 6px 16px;
+  transition: border-color .2s, box-shadow .2s;
+}
+.input-pill:focus-within {
+  border-color: rgba(16,185,129,.4);
+  box-shadow: 0 0 0 3px rgba(16,185,129,.07);
+}
+.input-pill textarea {
+  flex: 1;
+  background: none; border: none; outline: none;
+  color: var(--text);
+  font: 16px/1.5 inherit;
+  resize: none;
+  min-height: 30px; max-height: 140px;
+  padding: 4px 0;
+  -webkit-appearance: none;
+  align-self: center;
+}
+.input-pill textarea::placeholder { color: var(--muted); }
+.send {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: none; cursor: pointer; flex-shrink: 0;
+  background: var(--accent); color: #000;
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity .15s, transform .1s, background .2s;
+}
+.send:disabled { opacity: .25; cursor: not-allowed; }
+.send.stop-mode { background: var(--error); color: #fff; }
+.send:active:not(:disabled) { transform: scale(.9); }
+
+/* ── settings sheet ── */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 90;
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s;
+}
+.overlay.open { opacity: 1; pointer-events: all; }
+.sheet {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 22px 22px 0 0;
+  z-index: 100;
+  padding-bottom: max(28px, env(safe-area-inset-bottom));
+  transform: translateY(102%);
+  transition: transform .28s cubic-bezier(.25,.46,.45,.94);
+  max-height: 88vh; overflow-y: auto;
+}
+.sheet.open { transform: none; }
+.sheet-handle {
+  width: 36px; height: 4px; border-radius: 2px;
+  background: var(--border2); margin: 14px auto 0;
+}
+.sheet-title { font-size: 17px; font-weight: 700; padding: 14px 22px 6px; }
+.sg { padding: 12px 22px; }
+.sg label {
+  display: block; font-size: 11px; font-weight: 600;
+  color: var(--sub); text-transform: uppercase;
+  letter-spacing: .08em; margin-bottom: 8px;
+}
+.sg select, .sg input {
+  width: 100%;
+  background: var(--s2); color: var(--text);
+  border: 1px solid var(--border2);
+  padding: 12px 14px; border-radius: 12px;
+  font: 15px inherit; outline: none;
+  -webkit-appearance: none;
+  transition: border-color .15s;
+}
+.sg select:focus, .sg input:focus { border-color: rgba(16,185,129,.4); }
+.sg select { font-size: 14px; }
+.sep { height: 1px; background: var(--border); margin: 6px 22px; }
+.evo-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 22px;
+}
+.evo-row span { font-size: 14px; color: var(--sub); }
+.evo-btn {
+  padding: 9px 20px; border-radius: 20px;
+  border: 1px solid rgba(129,140,248,.3);
+  background: rgba(129,140,248,.08);
+  color: #818cf8;
+  font: 13px/1 inherit; cursor: pointer;
+  transition: opacity .15s;
+}
+.evo-btn:disabled { opacity: .3; cursor: not-allowed; }
+.evo-btn:active:not(:disabled) { opacity: .6; }
+
+/* tablet / desktop */
+@media (min-width: 640px) {
+  .sheet { left: auto; right: 20px; bottom: 20px; width: 360px; border-radius: 18px; border: 1px solid var(--border); max-height: 82vh; }
+  .bubble { max-width: 72%; }
+}
+</style>
+</head>
+<body>
+
+<!-- header -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+    </div>
+    Evo
+  </div>
+  <span class="status-dot" id="sdot"></span>
+  <div class="spacer"></div>
+  <button class="hbtn" id="settings-btn" aria-label="設定">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+  </button>
+</header>
+
+<!-- messages -->
+<main>
+  <div class="msgs" id="msgs">
+    <div class="welcome" id="welcome">
+      <div class="welcome-orb">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      </div>
+      <h1>Evo</h1>
+      <p>ローカル LLM で動く自律エージェント<br>ファイル操作・コード実行・外部サービス連携</p>
+      <div class="chips" id="welcome-chips">
+        <button class="chip" data-t="Use bash to show date, uptime, and disk usage">システム状態</button>
+        <button class="chip" data-t="Use bash to list top 5 CPU processes">プロセス確認</button>
+        <button class="chip" data-t="Use bash: git log --oneline -10">最近のコミット</button>
+        <button class="chip" data-t="Run eval.sh ./agent.v11 and report score">自己評価</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- input -->
+<div class="input-area">
+  <div class="input-pill">
+    <textarea id="task" placeholder="指示を入力…" rows="1"></textarea>
+    <button class="send" id="send" disabled>
+      <svg id="ico-send" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+      <svg id="ico-stop" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- settings overlay + sheet -->
+<div class="overlay" id="overlay"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">設定</div>
+
+  <div class="sg">
+    <label>モデル</label>
+    <select id="model">
+      <option value="mlx-community/Qwen3.5-122B-A10B-4bit" selected>Qwen3.5 122B — 最高品質</option>
+      <option value="mlx-community/Qwen3.5-27B-4bit">Qwen3.5 27B</option>
+      <option value="mlx-community/Qwen3.5-35B-A3B-4bit">Qwen3.5 35B</option>
+      <option value="mlx-community/Qwen3.5-9B-4bit">Qwen3.5 9B — 高速</option>
+      <option value="mlx-community/gemma-4-31b-it-4bit">Gemma 31B</option>
+      <option value="claude-sonnet-4-5">Claude Sonnet ☁</option>
+      <option value="claude-haiku-4-5">Claude Haiku ☁</option>
+    </select>
+  </div>
+  <div class="sg">
+    <label>認証トークン</label>
+    <input type="password" id="auth-token" placeholder="Bearer token">
+  </div>
+  <div class="sep"></div>
+  <div class="sg">
+    <label>最大ターン数</label>
+    <input type="number" id="max-turns" value="15" min="1" max="60">
+  </div>
+  <div class="sg">
+    <label>トークン予算</label>
+    <input type="number" id="budget" value="80000" step="10000" min="1000">
+  </div>
+  <div class="sep"></div>
+  <div class="evo-row">
+    <span id="ver-text">— 自己進化</span>
+    <button class="evo-btn" id="evo-btn">Evolve</button>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const msgsEl = $('#msgs');
+const taskEl = $('#task');
+const sendBtn = $('#send');
+
+let reader = null, agentRow = null, agentBubble = null, textBuf = '';
+let running = false, evolving = false;
+
+/* auth */
+function tok() { return ($('#auth-token').value || localStorage.getItem('mac_token') || '').trim(); }
+function hdrs(json) {
+  const h = {}; if (json) h['Content-Type'] = 'application/json';
+  const t = tok(); if (t) h['Authorization'] = 'Bearer ' + t; return h;
+}
+(function() {
+  const i = $('#auth-token'), s = localStorage.getItem('mac_token');
+  if (s) i.value = s;
+  i.addEventListener('input', () => localStorage.setItem('mac_token', i.value.trim()));
+})();
+
+/* settings sheet */
+const overlay = $('#overlay'), sheet = $('#sheet'), settingsBtn = $('#settings-btn');
+function openSheet()  { overlay.classList.add('open'); sheet.classList.add('open'); settingsBtn.classList.add('on'); }
+function closeSheet() { overlay.classList.remove('open'); sheet.classList.remove('open'); settingsBtn.classList.remove('on'); }
+settingsBtn.addEventListener('click', () => sheet.classList.contains('open') ? closeSheet() : openSheet());
+overlay.addEventListener('click', closeSheet);
+
+/* textarea auto-resize */
+taskEl.addEventListener('input', () => {
+  taskEl.style.height = 'auto';
+  taskEl.style.height = Math.min(taskEl.scrollHeight, 140) + 'px';
+  updateUI();
+});
+if (/iPhone|iPad/.test(navigator.userAgent))
+  taskEl.addEventListener('focus', () => setTimeout(() => msgsEl.scrollTop = msgsEl.scrollHeight, 300));
+
+/* ui state */
+function updateUI() {
+  const busy = running || evolving;
+  sendBtn.disabled = !busy && !taskEl.value.trim();
+  sendBtn.classList.toggle('stop-mode', busy);
+  $('#ico-send').style.display = busy ? 'none' : '';
+  $('#ico-stop').style.display = busy ? '' : 'none';
+  $('#sdot').className = 'status-dot' + (busy ? ' on' : '');
+}
+
+/* helpers */
+const esc = s => String(s).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+function scrollEnd() { msgsEl.scrollTop = msgsEl.scrollHeight; }
+function removeWelcome() { const w = $('#welcome'); if (w) w.remove(); }
+
+/* render markdown-ish text: code blocks, inline code, bold */
+function renderText(raw) {
+  // code fences
+  let s = raw.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
+    `<pre><code>${esc(code.trim())}</code></pre>`);
+  // inline code
+  s = s.replace(/`([^`]+)`/g, (_, c) => `<code>${esc(c)}</code>`);
+  // bold
+  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // newlines outside pre
+  s = s.replace(/\n/g, '<br>');
+  return s;
+}
+
+/* avatar svg */
+const avatarSVG = `<div class="avatar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>`;
+
+function addUserBubble(text) {
+  removeWelcome();
+  const r = document.createElement('div'); r.className = 'row user';
+  r.innerHTML = `<div class="bubble user">${esc(text)}</div>`;
+  msgsEl.appendChild(r); scrollEnd();
+}
+
+function startAgentBubble() {
+  removeWelcome();
+  agentRow = document.createElement('div'); agentRow.className = 'row agent';
+  agentRow.innerHTML = `${avatarSVG}<div class="bubble agent"><div class="thinking-dots"><span></span><span></span><span></span></div></div>`;
+  msgsEl.appendChild(agentRow);
+  agentBubble = agentRow.querySelector('.bubble');
+  scrollEnd();
+}
+
+function clearThinking() {
+  if (!agentBubble) return;
+  const d = agentBubble.querySelector('.thinking-dots');
+  if (d) d.remove();
+}
+
+function appendText(t) {
+  if (!agentBubble) startAgentBubble();
+  clearThinking();
+  textBuf += t;
+  agentBubble.innerHTML = renderText(textBuf);
+  scrollEnd();
+}
+
+function appendTool(name) {
+  if (!agentRow) startAgentBubble();
+  clearThinking();
+  const r = document.createElement('div'); r.className = 'tool-row';
+  r.innerHTML = `<span class="tool-tag"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" y1="19" x2="19" y2="13"/><line x1="16" y1="16" x2="20" y2="20"/></svg>${esc(name)}</span>`;
+  msgsEl.insertBefore(r, agentRow);
+  scrollEnd();
+}
+
+function finishOk(dur) {
+  clearThinking();
+  if (!textBuf && agentBubble) {
+    agentRow?.remove(); agentRow = null; agentBubble = null;
+  }
+  const m = document.createElement('div'); m.className = 'meta-row';
+  m.innerHTML = `<span class="done-tag"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>${dur}s</span>`;
+  msgsEl.appendChild(m); scrollEnd();
+  agentRow = null; agentBubble = null; textBuf = '';
+}
+
+function finishErr(msg) {
+  clearThinking();
+  if (!agentBubble) startAgentBubble();
+  agentBubble.innerHTML = `<span style="color:var(--error)">${esc(msg)}</span>`;
+  agentRow = null; agentBubble = null; textBuf = '';
+}
+
+/* SSE event */
+function onEvent(text, isEv) {
+  let etype = '', data = '';
+  for (const line of text.split('\n')) {
+    if (line.startsWith('event: ')) etype = line.slice(7).trim();
+    else if (line.startsWith('data: ')) data = line.slice(6);
+  }
+  if (!data) return;
+  let o; try { o = JSON.parse(data); } catch { return; }
+
+  switch (etype) {
+    case 'evolve_start':
+      startAgentBubble(); clearThinking();
+      textBuf = `v${o.src_v} → v${o.tgt_v} 自己改善中…\n`;
+      agentBubble.innerHTML = renderText(textBuf); break;
+    case 'start':
+      if (!agentBubble) startAgentBubble(); break;
+    case 'text': {
+      const raw = (o.content || '').replace(/^\n?\[assistant\]\s*/, '');
+      if (raw.trim()) appendText(raw); break;
+    }
+    case 'log': {
+      const line = o.line || '';
+      if (line.startsWith('[tool]')) appendTool(line.slice(6).trim().split(' ')[0] || line.slice(6,30).trim());
+      else if (line.startsWith('[assistant]')) { const c = line.slice(11).trim(); if (c) appendText(c + '\n'); }
+      break;
+    }
+    case 'done':
+      if (isEv) {
+        clearThinking();
+        const t = `${o.success?'✓':'✗'} v${o.tgt_v} ${o.success?'完了':'失敗'} — ${o.duration_sec}s`;
+        const m = document.createElement('div'); m.className = 'meta-row';
+        m.innerHTML = `<span class="${o.success?'done-tag':'err-tag'}">${esc(t)}</span>`;
+        msgsEl.appendChild(m); scrollEnd();
+        if (o.success) loadVersion();
+        agentRow = null; agentBubble = null; textBuf = '';
+      } else {
+        finishOk(o.duration_sec);
+      }
+      break;
+    case 'error': finishErr(o.message || JSON.stringify(o)); break;
+  }
+}
+
+/* run */
+async function run() {
+  const task = taskEl.value.trim(); if (!task) return;
+  taskEl.blur();
+  running = true; updateUI(); closeSheet();
+  addUserBubble(task); textBuf = ''; taskEl.value = ''; taskEl.style.height = '';
+  const body = {
+    task, model: $('#model').value,
+    budget: parseInt($('#budget').value),
+    max_turns: parseInt($('#max-turns').value),
+    backend: 'openai', api_base: 'http://127.0.0.1:5001',
+    stream: true, fallback: true,
+  };
+  try {
+    const res = await fetch('/run', { method: 'POST', headers: hdrs(true), body: JSON.stringify(body) });
+    if (!res.ok) { startAgentBubble(); clearThinking(); agentBubble.innerHTML = `<span style="color:var(--error)">HTTP ${res.status}</span>`; agentRow=null; agentBubble=null; return; }
+    reader = res.body.getReader(); const dec = new TextDecoder(); let buf = '';
+    while (true) {
+      const { done, value } = await reader.read(); if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i; while ((i = buf.indexOf('\n\n')) >= 0) { onEvent(buf.slice(0, i), false); buf = buf.slice(i + 2); }
+    }
+  } catch (e) { if (e.name !== 'AbortError') finishErr(e.message); }
+  finally { running = false; updateUI(); reader = null; agentRow = null; agentBubble = null; textBuf = ''; }
+}
+
+/* evolve */
+async function doEvolve() {
+  if (running || evolving) return;
+  evolving = true; updateUI(); closeSheet(); textBuf = '';
+  try {
+    const res = await fetch('/evolve', { method: 'POST', headers: hdrs(false) });
+    if (!res.ok) { removeWelcome(); startAgentBubble(); clearThinking(); agentBubble.innerHTML = `<span style="color:var(--error)">HTTP ${res.status}</span>`; agentRow=null; agentBubble=null; return; }
+    reader = res.body.getReader(); const dec = new TextDecoder(); let buf = '';
+    while (true) {
+      const { done, value } = await reader.read(); if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i; while ((i = buf.indexOf('\n\n')) >= 0) { onEvent(buf.slice(0, i), true); buf = buf.slice(i + 2); }
+    }
+  } catch (e) { if (e.name !== 'AbortError') finishErr(e.message); }
+  finally { evolving = false; updateUI(); reader = null; agentRow = null; agentBubble = null; textBuf = ''; }
+}
+
+/* stop */
+async function doStop() {
+  if (reader) { try { reader.cancel(); } catch {} reader = null; }
+  try { await fetch('/stop', { method: 'POST', headers: hdrs(false) }); } catch {}
+  if (agentBubble) { clearThinking(); agentBubble.innerHTML = '<span style="color:var(--sub)">⏹ 停止</span>'; }
+  running = false; evolving = false; updateUI();
+  agentRow = null; agentBubble = null; textBuf = '';
+}
+
+sendBtn.addEventListener('click', () => (running || evolving) ? doStop() : run());
+$('#evo-btn').addEventListener('click', () => evolving ? doStop() : doEvolve());
+taskEl.addEventListener('keydown', e => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); run(); } });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { if (running || evolving) doStop(); else if (sheet.classList.contains('open')) closeSheet(); }
+});
+
+/* welcome chips */
+for (const b of document.querySelectorAll('.chip'))
+  b.addEventListener('click', () => { taskEl.value = b.dataset.t; taskEl.dispatchEvent(new Event('input')); taskEl.focus(); });
+
+/* version */
+async function loadVersion() {
+  try {
+    const r = await fetch('/version', { headers: hdrs(false) }); if (!r.ok) return;
+    const d = await r.json();
+    $('#ver-text').textContent = `v${d.binary_v || '?'} — 自己進化`;
+  } catch {}
+}
+loadVersion(); setInterval(loadVersion, 60000);
+</script>
+</body>
+</html>

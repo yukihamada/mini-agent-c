@@ -15,3 +15,14 @@ evolved.txt
 selftest.txt
 result.txt
 leak.txt
+.env
+*.log
+web/server-swift
+.DS_Store
+agent.v11
+agent.v12
+.agent/web_history.jsonl
+.agent/eval_history.jsonl
+.agent/memory.md
+*.xcuserstate
+xcuserdata/

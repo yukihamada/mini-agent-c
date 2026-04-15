@@ -1,5 +1,5 @@
 #!/bin/bash
-#@name: http_get
+#@name: http_fetch
 #@description: Fetch a URL via curl and return the first 4KB of response
 #@arg: url:HTTPS URL to fetch
 set -e
