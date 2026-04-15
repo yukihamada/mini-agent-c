@@ -1,0 +1,25 @@
+#!/bin/bash
+# evo — CLI wrapper that always uses local MLX (no cloud fallback)
+# Usage: ./evo "タスク"  or  ./evo -i
+
+REPO="$(cd "$(dirname "$0")" && pwd)"
+BINARY="$REPO/agent.v11"
+MLX_HOST="${MLX_HOST:-127.0.0.1}"
+MLX_PORT="${MLX_PORT:-5001}"
+
+if [ ! -x "$BINARY" ]; then
+    echo "[evo] building agent.v11..."
+    make -C "$REPO" agent.v11
+fi
+
+# Check MLX server
+if ! curl -sf "http://${MLX_HOST}:${MLX_PORT}/health" > /dev/null 2>&1; then
+    echo "[evo] WARNING: MLX server not responding at http://${MLX_HOST}:${MLX_PORT}"
+    echo "[evo] Start it with: mlx_lm.server --model mlx-community/Qwen3.5-9B-4bit --port ${MLX_PORT}"
+    exit 1
+fi
+
+exec "$BINARY" \
+    --backend openai \
+    --api-base "http://${MLX_HOST}:${MLX_PORT}" \
+    "$@"

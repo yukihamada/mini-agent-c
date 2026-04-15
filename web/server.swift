@@ -379,7 +379,7 @@ func handleRun(_ conn: Conn, body: Data) {
     let noMem    = obj["no_memory"] as? Bool  ?? false
     let backend  = obj["backend"]  as? String ?? "openai"
     let apiBase  = obj["api_base"] as? String ?? "http://127.0.0.1:5001"
-    let fallback = obj["fallback"] as? Bool   ?? true
+    let fallback = obj["fallback"] as? Bool   ?? false
 
     let binary = findLatestBinary()
     var args = ["--model", model, "--budget", "\(budget)", "--max-turns", "\(maxTurns)"]

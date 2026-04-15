@@ -581,7 +581,7 @@ async function run(){
   addUser(task); textBuf=''; taskEl.value=''; taskEl.style.height='';
   const body={task,model:$('#model').value,budget:parseInt($('#budget').value),
     max_turns:parseInt($('#max-turns').value),backend:'openai',
-    api_base:'http://127.0.0.1:5001',stream:true,fallback:true};
+    api_base:'http://127.0.0.1:5001',stream:true,fallback:false};
   try{
     const res=await fetch('/run',{method:'POST',headers:hdrs(true),body:JSON.stringify(body)});
     if(!res.ok){doneErr(`HTTP ${res.status}`);return;}
