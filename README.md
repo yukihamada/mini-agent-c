@@ -1,35 +1,31 @@
-# ⚡ Evo — Autonomous Self-Evolving Agent
+# Evo — 自己進化するローカルAIエージェント
 
 [![Build](https://github.com/yukihamada/mini-agent-c/actions/workflows/build.yml/badge.svg)](https://github.com/yukihamada/mini-agent-c/actions/workflows/build.yml)
 [![GitHub](https://img.shields.io/badge/github-mini--agent--c-181717?logo=github)](https://github.com/yukihamada/mini-agent-c)
-[![Release](https://img.shields.io/github/v/release/yukihamada/mini-agent-c?logo=github)](https://github.com/yukihamada/mini-agent-c/releases)
 [![Web UI](https://img.shields.io/badge/web-mini--agent.yukihamada.jp-10b981?logo=safari)](https://mini-agent.yukihamada.jp)
+[![C](https://img.shields.io/badge/core-C99-A8B9CC?logo=c)](agent.v12.c)
 [![Swift](https://img.shields.io/badge/server-Swift-fa7343?logo=swift)](web/server.swift)
 [![iOS](https://img.shields.io/badge/iOS-Evo_App-000?logo=apple)](ios/)
-[![MLX](https://img.shields.io/badge/LLM-MLX_Qwen3.5-blueviolet)](https://github.com/ml-explore/mlx)
+[![MLX](https://img.shields.io/badge/LLM-MLX_Qwen3--blueviolet)](https://github.com/ml-explore/mlx)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-A lightweight autonomous AI agent written in **C**, powered by local **MLX LLMs** (Qwen3.5 122B/27B/9B). Features a beautiful chat web UI, iOS app, self-evolution, and 16+ tools for system operations, cloud services, and more.
-
----
-
-## ✨ Features
-
-| | |
-|---|---|
-| 🧠 **Local LLM** | Qwen3.5 122B / 27B / 9B / 35B via MLX on Apple Silicon |
-| 🌐 **Web UI** | Real-time SSE streaming chat — accessible from anywhere via Cloudflare Tunnel |
-| 📱 **iOS App** | Native WKWebView app "Evo" — update UI without App Store releases |
-| ⚡ **Self-Evolution** | Agent reads its own C source, improves it, compiles, and evaluates |
-| 🔧 **16+ Tools** | File ops, bash, memory, Fly.io, Telegram, Gmail, GitHub, M5 Mac SSH |
-| 🛡️ **Resource Guard** | Auto-kills agents at CPU >92% / RAM >90% |
-| ⏳ **Request Queue** | Busy? New requests wait instead of failing |
-| 🔄 **Auto-restart** | Server resurrects itself after any crash |
-| 🔄 **Fallback** | MLX failure → Claude Haiku (Anthropic) |
-| 🔒 **Auth** | Bearer token + safe-area-aware mobile UI |
+**C言語で書かれた、自分自身を改善し続けるAIエージェント。**  
+ローカルLLM（Apple Silicon上のMLX）をフル活用し、クラウド依存ゼロで動作。  
+Web UI・iOSアプリ・CLI、すべてをひとつのバイナリが束ねる。
 
 ---
 
-## 🏗️ Architecture
+## なぜ Evo なのか
+
+- **Cバイナリ1本**で動く。Dockerも仮想環境も不要
+- **ローカルLLM優先**。Qwen3.5 を MLX で Apple Silicon 上に直接展開
+- **自己進化**。エージェントが自分のCソースを読み、改善版を書いてコンパイル・評価する
+- **16+ ツール搭載**。ファイル操作からFly.io・GitHub・Gmail・SSH操作まで対応
+- **リソース保護付き**。CPU/RAM閾値を超えたら自動で古いエージェントを停止
+
+---
+
+## アーキテクチャ
 
 ```
 iPhone / Browser
@@ -38,89 +34,271 @@ iPhone / Browser
 Cloudflare Tunnel (mini-agent.yukihamada.jp)
       │
       ▼
-Swift HTTP Server (port 7878)          ← web/server.swift
-      │ SSE stream
+Swift HTTPサーバー  :7878          ← web/server.swift
+      │ SSE ストリーミング
       ▼
-agent.v11 (C binary)                   ← agent.v11.c
-      │ OpenAI-compatible API
+agent バイナリ (C99)               ← agent.v12.c
+      │ OpenAI互換 API
       ▼
-MLX LLM Server (port 5001)             ← mlx_lm.server on M5 Mac
-  Qwen3.5-122B / 27B / 9B
+MLX LLMサーバー    :5001           ← mlx_lm.server (Apple Silicon)
+  Qwen3.5-122B / 27B / 9B / 4bit
 ```
 
 ---
 
-## 🚀 Quick Start
+## クイックスタート
+
+### 1. ビルド
 
 ```bash
 git clone https://github.com/yukihamada/mini-agent-c
 cd mini-agent-c
 
-# Build agent + Swift server
-make agent.v11 server
+# セットアップ（依存チェック + ビルド）
+./setup.sh
+
+# または直接 make
+make agent.v12 server
 ```
 
-### Start MLX LLM server (Apple Silicon required)
+依存: `cc`（Xcode CLT）、`swiftc`、`curl`、`sqlite3`
+
+### 2. MLX LLMサーバーを起動（Apple Silicon必須）
 
 ```bash
 pip install mlx-lm
+
+# 軽量 4bit モデル（推奨スタート）
 mlx_lm.server --model mlx-community/Qwen3.5-9B-4bit --port 5001
+
+# ハイエンド（M2 Ultra / M3 Max 以上推奨）
+mlx_lm.server --model mlx-community/Qwen3.5-122B-4bit --port 5001
 ```
 
-### Start the web server (with auto-restart)
+### 3. Webサーバーを起動
 
 ```bash
-MINI_AGENT_WEB_TOKEN=your_token \
+MINI_AGENT_WEB_TOKEN=your_secret_token \
 CPU_REFUSE_PCT=85 CPU_KILL_PCT=92 \
 make run
 ```
 
-Or for one-shot CLI use:
+ブラウザで `http://localhost:7878` を開く。  
+外部公開には [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) を推奨。
+
+### 4. CLIとして使う
 
 ```bash
-make agent.v11 server
-```
+# Anthropic API（クラウド）
+ANTHROPIC_API_KEY=sk-... ./agent.v12 "Fly.io の全アプリ一覧を出して"
 
-Open `http://localhost:7878` — or expose via Cloudflare Tunnel for remote access.
+# ローカルMLX（クラウドなし）
+./agent.v12 \
+  --backend openai \
+  --api-base http://127.0.0.1:5001 \
+  "ディスク使用量とCPU上位プロセスを確認して"
 
-### 4. CLI usage
-
-```bash
-# Run with local MLX
-./agent.v11 --model mlx-community/Qwen3.5-9B-4bit \
-            --backend openai \
-            --api-base http://127.0.0.1:5001 \
-            "Show disk usage and top CPU processes"
-
-# Run with Anthropic (cloud)
-ANTHROPIC_API_KEY=sk-... ./agent.v11 "List all Fly.io apps"
+# 対話モード（REPL）
+./agent.v12 -i
 ```
 
 ---
 
-## 🌐 Web UI
+## evo — ローカルLLX専用ラッパー
 
-Real-time streaming chat interface built as a PWA (Progressive Web App).
+`evo` はローカルMLXサーバーへの接続を自動化するシェルラッパーです。  
+環境変数を毎回指定する必要がなく、MLXサーバーが未起動なら案内してくれます。
 
-- **URL**: [mini-agent.yukihamada.jp](https://mini-agent.yukihamada.jp)
-- Glass-blur header, animated avatar, markdown rendering (code blocks, bold, lists)
-- iOS safe-area aware, 44px touch targets, keyboard-dismissal on send
-- Settings sheet: model selector, auth token, budget, Evolve button
-- Add to Home Screen for full-screen PWA experience
+```bash
+# 基本的な使い方
+./evo "Gitのコミット一覧を見せて"
+
+# 対話モード
+./evo -i
+
+# MLXサーバーのホスト・ポートをカスタマイズ
+MLX_HOST=192.168.0.5 MLX_PORT=5001 ./evo "M5 Macのプロセス一覧"
+```
+
+**内部動作:**
+
+```bash
+# evo が実行するコマンドのイメージ
+./agent.v12 \
+  --backend openai \
+  --api-base "http://${MLX_HOST}:${MLX_PORT}" \
+  "$@"
+```
+
+MLXサーバーが見つからない場合:
+```
+[evo] WARNING: MLX server not responding at http://127.0.0.1:5001
+[evo] Start it with: mlx_lm.server --model mlx-community/Qwen3.5-9B-4bit --port 5001
+```
 
 ---
 
-## 📱 iOS App (Evo)
+## 機能一覧
 
-`ios/` — WKWebView wrapper around the web UI.
+| 機能 | 詳細 |
+|------|------|
+| **ローカルLLM** | Qwen3.5 122B / 27B / 9B / 4bit via MLX（Apple Silicon） |
+| **Web UI** | SSEリアルタイムストリーミング、PWA対応、どこからでもアクセス可 |
+| **iOS アプリ** | WKWebViewラッパー「Evo」— App Store更新なしでUI変更可能 |
+| **自己進化** | エージェントが自分のCソースを改善→コンパイル→評価 |
+| **16+ ツール** | ファイル操作・bash・Fly.io・Telegram・Gmail・GitHub・SSH |
+| **リソース保護** | CPU >92% / RAM >90% で古いエージェントを自動停止 |
+| **リクエストキュー** | 処理中でも新リクエストを失敗させずにキューイング |
+| **自動再起動** | クラッシュ後にサーバーが自動復旧 |
+| **フォールバック** | MLX失敗時 → Claude Haiku（Anthropic）へ自動切替 |
+| **Bearer認証** | トークン認証 + モバイルセーフエリア対応UI |
+| **監査ログ** | 全ツール呼び出しを `.agent/audit.log` にJSONLで記録 |
+
+---
+
+## ツール一覧
+
+### 組み込みツール（Cバイナリ内蔵）
+
+| ツール名 | 説明 |
+|---------|------|
+| `read_file` | ファイルを読み込む |
+| `write_file` | ファイルを作成・上書き |
+| `bash` | シェルコマンドを実行 |
+| `list_dir` | ディレクトリ一覧 |
+| `grep_files` | ファイル内容を正規表現検索 |
+| `glob_files` | パターンでファイルを検索 |
+| `diff_files` | ファイル差分を表示 |
+| `diff_apply` | unified diffをファイルに適用 |
+| `http_request` | HTTP GET/POST/PUT/DELETE |
+| `save_memory` | メモを `~/.mini-agent/memory.md` に保存 |
+| `recall_memory` | 保存メモを読み込む |
+| `spawn_agent` | 子エージェントを生成（深さ制限付き） |
+| `checkpoint` | 変更ファイルのスナップショット保存 |
+| `undo` | 最新チェックポイントから復元 |
+| `clipboard_get` | macOSクリップボードを読む |
+| `clipboard_set` | macOSクリップボードに書き込む |
+| `preview_edit` | diffプレビュー（ファイル変更なし） |
+| `run_tests` | テストフレームワークを自動検出・実行 |
+| `sleep` | N秒待機（ポーリング・リトライに便利） |
+
+### 動的ツール（`.agent/tools/*.sh`）
+
+| ツール名 | 説明 |
+|---------|------|
+| `fly_ops` | Fly.ioアプリのデプロイ・ログ・secrets操作 |
+| `telegram_send` | Telegramへメッセージ送信 |
+| `gmail_ops` | Gmail検索・送受信（gog CLI経由） |
+| `github_ops` | PR・issue・CI管理（gh CLI経由） |
+| `m5_exec` | M5 MacへのSSHコマンド実行 |
+| `self_improve` | 進化状況・eval履歴の確認 |
+| `power_info` | macOSバッテリー・電源情報 |
+| `http_fetch` | HTTP GET/POSTリクエスト |
+
+`.agent/tools/` に `.sh` ファイルを置くだけで新ツールを追加できます。
+
+---
+
+## 自己進化の仕組み
+
+エージェントは自分自身のCソースコードを読んで改善案を書き、コンパイル・評価します。
 
 ```
-Bundle ID:  com.enablerdao.evo
-Name:       Evo
-Deployment: iOS 17.0+
+POST /evolve
+      │
+      ▼
+agent が agent.vN.c を読む
+      │
+      ▼
+改善点を特定・実装 → agent.v(N+1).c を書き出す
+      │
+      ▼
+cc -O2 agent.v(N+1).c cJSON.c -lcurl -lm
+      │
+      ▼
+eval.sh でスコアリング
+      │
+      ▼
+.agent/eval_history.jsonl に記録
 ```
 
-The iOS app injects the auth token via JavaScript, so the web UI can be updated without releasing a new App Store version.
+これまでの進化ログ:
+
+| バージョン | 主な追加機能 |
+|-----------|------------|
+| v1 | 基本ツールループ |
+| v6 | 動的ツール、spawn_agent、永続メモリ |
+| v8 | grep_files、glob_files、ストリーミングbash |
+| v9 | 並列ツール実行、git、diff_files、通知 |
+| v10 | HTTPリクエスト、checkpoint/undo、クリップボード |
+| v11 | 自己進化、リソース保護、MLXサポート |
+| v12 | diff_apply、sleep ツール、進化コンテキスト改善 |
+
+---
+
+## プロジェクト構成
+
+```
+mini-agent-c/
+├── agent.v12.c          # 現行エージェントソース（C99）
+├── agent.v{N}.c         # 過去バージョンの履歴
+├── cJSON.c / cJSON.h    # JSONライブラリ
+├── eval.sh              # エージェント評価スクリプト
+├── evolve.sh            # 進化トリガースクリプト
+├── evo                  # ローカルMLXラッパー（推奨CLI）
+├── setup.sh             # セットアップスクリプト
+├── Makefile             # ビルドルール
+├── web/
+│   ├── server.swift     # Swift HTTPサーバー（メイン）
+│   ├── index.html       # Web UI（PWA）
+│   └── server.py        # Pythonサーバー（レガシー）
+├── ios/
+│   ├── Sources/App/     # SwiftUI WKWebViewアプリ
+│   └── project.yml      # XcodeGen仕様
+├── examples/            # ユースケースサンプル集
+│   ├── 1-openclaw-fleet/
+│   ├── 2-solana-watchdog/
+│   ├── 3-fly-deploy-verify/
+│   ├── 4-rust-subprocess/
+│   └── 5-evolve-any-target/
+└── .agent/
+    ├── tools/           # 動的シェルツール
+    ├── audit.log        # ツール呼び出し監査ログ
+    ├── web_history.jsonl
+    └── eval_history.jsonl
+```
+
+---
+
+## 環境変数
+
+| 変数名 | デフォルト | 説明 |
+|--------|----------|------|
+| `MINI_AGENT_WEB_TOKEN` | `` | Bearer認証トークン |
+| `PORT` | `7878` | HTTPサーバーポート |
+| `MLX_HOST` | `127.0.0.1` | MLXサーバーホスト |
+| `MLX_PORT` | `5001` | MLXサーバーポート |
+| `MAX_CONCURRENT` | `2` | 最大並列エージェント数 |
+| `CPU_REFUSE_PCT` | `85` | この%超でリクエスト拒否 |
+| `CPU_KILL_PCT` | `92` | この%超で最古エージェントを停止 |
+| `MEM_KILL_PCT` | `90` | この%超で最古エージェントを停止 |
+| `AUTO_EVOLVE_HOURS` | `0` | N時間ごとに自動進化（0=無効） |
+| `ANTHROPIC_API_KEY` | `` | Claude APIキー（クラウドフォールバック用） |
+
+---
+
+## iOSアプリ（Evo）
+
+`ios/` — Web UIをWKWebViewでラップしたネイティブアプリ。
+
+```
+Bundle ID:   com.enablerdao.evo
+アプリ名:     Evo
+最低バージョン: iOS 17.0+
+```
+
+認証トークンはJavaScript経由でインジェクションされるため、  
+Web UI側を変更してもApp Storeへの再提出不要。
 
 ```bash
 cd ios
@@ -130,104 +308,35 @@ open Evo.xcodeproj
 
 ---
 
-## ⚡ Self-Evolution
+## セキュリティ
 
-The agent can improve its own C source code:
+- Bearer tokenによるリクエスト認証
+- パストラバーサル防止（`..` / `~` 禁止、CWD内に限定）
+- 危険なbashコマンドのデニーリスト
+- `spawn_agent` の再帰深さ上限（`MINI_AGENT_DEPTH`）
+- `.agent/STOP` ファイルで全エージェントを即時停止
+- 全ツール呼び出しを `.agent/audit.log` にJSONL記録
+- APIキーは全出力から自動マスキング
 
-1. **POST /evolve** — triggers an evolution cycle
-2. Agent reads `agent.vN.c`, identifies improvements
-3. Writes `agent.v(N+1).c` with changes
-4. Compiles: `cc -O2 ... agent.v(N+1).c cJSON.c -lcurl -lm`
-5. Runs `eval.sh` to score the new binary
-6. Records result in `.agent/eval_history.jsonl`
-
----
-
-## 🔧 Tools
-
-### Built-in (C)
-| Tool | Description |
-|------|-------------|
-| `read_file` | Read any file |
-| `write_file` | Create/overwrite files |
-| `bash` | Execute shell commands |
-| `list_dir` | List directory contents |
-| `save_memory` | Persist notes to `~/.mini-agent/memory.md` |
-| `recall_memory` | Read persistent memory |
-| `spawn_agent` | Spawn a child agent (depth-limited) |
-
-### Dynamic (.agent/tools/*.sh)
-| Tool | Description |
-|------|-------------|
-| `fly_ops` | Deploy/logs/status/secrets for any Fly.io app |
-| `telegram_send` | Send Telegram message to @yukihamada_ai_bot |
-| `gmail_ops` | Search/read/send Gmail via gog CLI |
-| `github_ops` | PR/issue/CI management via gh CLI |
-| `m5_exec` | SSH command execution on M5 Mac |
-| `self_improve` | Status/evolve/eval-history operations |
-| `power_info` | macOS battery/power information |
-| `http_fetch` | HTTP GET/POST requests |
+詳細は [SECURITY.md](SECURITY.md) を参照。
 
 ---
 
-## 📁 Project Structure
+## コントリビューション
 
-```
-mini-agent-c/
-├── agent.v11.c          # Current agent source (C)
-├── cJSON.c / cJSON.h    # JSON library
-├── eval.sh              # Agent evaluation script
-├── Makefile             # Build rules
-├── web/
-│   ├── server.swift     # HTTP server (Swift)
-│   ├── index.html       # Web UI (PWA)
-│   └── server.py        # Python server (legacy)
-├── ios/
-│   ├── Sources/App/     # SwiftUI WKWebView app
-│   └── project.yml      # XcodeGen spec
-└── .agent/
-    ├── tools/           # Dynamic shell tools
-    ├── web_history.jsonl
-    └── eval_history.jsonl
+[CONTRIBUTING.md](CONTRIBUTING.md) を参照。  
+新ツールの追加は `.agent/tools/` に `.sh` ファイルを置くだけです。
+
+```bash
+# 新ツールの例: .agent/tools/my_tool.sh
+#!/bin/bash
+# TOOL_DESCRIPTION: 何かを実行するツール
+# TOOL_ARGS: {"action": "実行するアクション"}
+echo "実行結果"
 ```
 
 ---
 
-## ⚙️ Environment Variables
-
-| Var | Default | Description |
-|-----|---------|-------------|
-| `MINI_AGENT_WEB_TOKEN` | `` | Bearer auth token |
-| `PORT` | `7878` | HTTP server port |
-| `MLX_HOST` | `127.0.0.1` | MLX server host |
-| `MLX_PORT` | `5001` | MLX server port |
-| `MAX_CONCURRENT` | `2` | Max parallel agents |
-| `CPU_REFUSE_PCT` | `85` | Reject new requests above this CPU% |
-| `CPU_KILL_PCT` | `92` | Kill oldest agent above this CPU% |
-| `MEM_KILL_PCT` | `90` | Kill oldest agent above this RAM% |
-| `AUTO_EVOLVE_HOURS` | `0` | Auto-evolve every N hours (0=off) |
-
----
-
-## 🤖 Agent Versions
-
-| Version | Key Addition |
-|---------|-------------|
-| v1 | Basic tool-use loop |
-| v6 | Dynamic tools, spawn_agent, memory |
-| v8 | grep_files, glob_files, streaming bash |
-| v9 | Parallel tools, git, diff_files, notify |
-| v10 | HTTP requests, checkpoint/undo, clipboard |
-| v11 | Self-evolution, resource guard, MLX support |
-
----
-
-## 🤝 Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) — adding a tool is as simple as dropping a `.sh` file into `.agent/tools/`.
-
----
-
-## 📄 License
+## ライセンス
 
 [MIT](LICENSE) — built by [yukihamada](https://github.com/yukihamada)
