@@ -37,7 +37,7 @@ jobs:
           echo "TARBALL=evo-${VERSION}-macos.tar.gz" >> $GITHUB_ENV
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: ${{ env.TARBALL }}
           generate_release_notes: true
